@@ -1,4 +1,5 @@
 import { fileURLToPath } from 'url';
+import { handleInit } from './commands/init.js';
 
 // 1. Extract the raw arguments from the terminal process execution
 
@@ -34,7 +35,7 @@ if (!command || flags.includes('--help') || flags.includes('-h')) {
 switch (command) {
   case 'init':
     console.log('🔍 Executing stack auto-discovery setup...');
-    // we will build and import this command next
+    handleInit();
     break;
 
   case 'start':

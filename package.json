@@ -12,5 +12,8 @@
   },
   "keywords": [],
   "author": "Olusanya Emmanuel",
-  "license": "ISC"
+  "license": "ISC",
+  "dependencies": {
+    "picocolors": "^1.1.1"
+  }
 }
