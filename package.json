@@ -1,6 +1,7 @@
 {
   "name": "tracewatch",
   "version": "1.0.0",
+  "type": "module",
   "description": "Don't show me the logs, show me what broke.",
   "main": "src/cli.js",
   "bin": {
