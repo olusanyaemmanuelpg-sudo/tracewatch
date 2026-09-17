@@ -1,0 +1,15 @@
+{
+  "name": "tracewatch",
+  "version": "1.0.0",
+  "description": "Don't show me the logs, show me what broke.",
+  "main": "src/cli.js",
+  "bin": {
+    "tracewatch": "./bin/tracewatch.js"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "Olusanya Emmanuel",
+  "license": "ISC"
+}
