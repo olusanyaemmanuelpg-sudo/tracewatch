@@ -1,5 +1,6 @@
 import { fileURLToPath } from 'url';
 import { handleInit } from './commands/init.js';
+import { handleStart } from './commands/start.js';
 
 // 1. Extract the raw arguments from the terminal process execution
 
@@ -39,9 +40,9 @@ switch (command) {
     break;
 
   case 'start':
-    console.log(
-      `🚀 Spawning microservice collector stream (Web dashboard: ${useWeb})...`,
-    );
+    const useWeb = flags.includes('--web');
+    // Pass along flags array mapped into simple config parameters if needed
+    handleStart({ web: useWeb }); // <-- CHANGE THIS LINE
     break;
 
   case 'explain':

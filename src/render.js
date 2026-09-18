@@ -38,11 +38,9 @@ export function formatLogEvent(event, serviceColor = 'white') {
   }
 
   // Append context flags if an explicit correlation requestId tracking link is found
-  const reqStr = event.requestId
-    ? pc.darkGray(` [req:${event.requestId}]`)
-    : '';
+  const reqStr = event.requestId ? pc.gray(` [req:${event.requestId}]`) : '';
 
-  return `${grayTime}  ${serviceBadge}  ${messageText}${reqStr}`;
+  return `${grayTimestamp}  ${serviceBadge}  ${messageText}${reqStr}`;
 }
 
 /**
@@ -51,5 +49,5 @@ export function formatLogEvent(event, serviceColor = 'white') {
  * @param {string} [serviceColor]
  */
 export function renderToConsole(event, serviceColor) {
-  console.log(formatLogLine(event, serviceColor));
+  console.log(formatLogEvent(event, serviceColor));
 }
