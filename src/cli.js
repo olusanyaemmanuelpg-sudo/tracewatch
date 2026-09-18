@@ -59,7 +59,7 @@ switch (command) {
 
   default:
     console.error(
-      '❌ Error: Unknown command "${command}". Type "tracewatch --help" to view options.',
+      `❌ Error: Unknown command "${command}". Type "tracewatch --help" to view options.`,
     );
     process.exit(1);
 }

@@ -78,8 +78,9 @@ export function spawnServices(services, onLogEvent) {
       });
       process.exit(0);
     };
+    process.on('SIGINT', cleanup);
+    process.on('SIGTERM', cleanup);
   });
-  process.on('SIGINT', cleanup);
-  process.on('SIGTERM', cleanup);
+
   return activeProcesses;
 }
