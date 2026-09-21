@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import pc from 'picocolors';
 import { detectLocalStack } from '../config.js';
+import { createSpinner } from '../cli-ui.js';
 
 /**
  * Handles execution of the `tracewatch init` command sequence.
@@ -18,10 +19,9 @@ export function handleInit() {
     return;
   }
 
-  console.log(pc.cyan('🔍 Scanning project directory for frameworks...'));
-
-  // Fetch discovered local application stacks
+  const spinner = createSpinner('Scanning project directory for frameworks');
   const detectedServices = detectLocalStack();
+  spinner.stop('✅ Stack scan complete');
 
   // Construct the clean config temeplate precisely matching your application
   const configPayload = {

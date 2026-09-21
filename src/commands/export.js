@@ -3,6 +3,7 @@ import path from 'path';
 import pc from 'picocolors';
 import { correlateEvents } from '../correlate.js';
 import { analyzeTraces } from '../analyze.js';
+import { createSpinner } from '../cli-ui.js';
 
 /**
  * Strips out credential strings, access tokens, and passwords to prevent corporate leaks.
@@ -52,6 +53,7 @@ export function handleExport(options = {}) {
   // 2. Load historic ledger data
   /** @type {import('../types.js').LogEvent[]} */
   const events = [];
+  const spinner = createSpinner('Building secure diagnostic report');
   try {
     const rawData = fs.readFileSync(sessionPath, 'utf-8');
     rawData.split('\n').forEach((line) => {
@@ -59,6 +61,7 @@ export function handleExport(options = {}) {
       events.push(JSON.parse(line));
     });
   } catch (err) {
+    spinner.stop();
     console.error(
       pc.red('❌ Failed to process the logging session data ledger.'),
     );
@@ -109,6 +112,7 @@ export function handleExport(options = {}) {
   // 6. Output the string buffer file synchronously to workspace root
   const outPath = path.join(process.cwd(), outFilename);
   fs.writeFileSync(outPath, md, 'utf-8');
+  spinner.stop('✅ Report generation complete');
 
   console.log(
     pc.green(

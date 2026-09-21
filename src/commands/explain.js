@@ -4,6 +4,7 @@ import pc from 'picocolors';
 import { correlateEvents } from '../correlate.js';
 import { analyzeTraces } from '../analyze.js';
 import { formatLogEvent } from '../render.js';
+import { createSpinner } from '../cli-ui.js';
 
 /**
  * Handles execution of the `tracewatch explain` command sequence.
@@ -24,6 +25,7 @@ export function handleExplain() {
   // 2. Parse the append-only log entries line-by-line back into memory arrays
   /** @type {import('../types.js').LogEvent[]} */
 
+  const spinner = createSpinner('Reading and analyzing session logs');
   const historicEvents = [];
   try {
     const rawData = fs.readFileSync(sessionPath, 'utf-8');
@@ -34,11 +36,13 @@ export function handleExplain() {
       historicEvents.push(JSON.parse(line));
     });
   } catch (err) {
+    spinner.stop();
     console.log(pc.red('❌ Failed to read log session trace file.'));
     return;
   }
 
   if (historicEvents.length === 0) {
+    spinner.stop();
     console.log(
       pc.yellow(
         '⚠️  The current log session file is completely empty. No data to analyze.',
@@ -50,6 +54,7 @@ export function handleExplain() {
   // 3. Process logs through our correlation engines and analytical rule sets
   const correlatedTraces = correlateEvents(historicEvents);
   const findings = analyzeTraces(correlatedTraces, historicEvents);
+  spinner.stop('✅ Session analysis complete');
 
   // 4. Default structural layout screen if no rules successfully trigger matching signatures
   if (findings.length === 0) {
