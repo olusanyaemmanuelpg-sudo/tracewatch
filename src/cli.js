@@ -15,21 +15,20 @@ const flags = rawArgs.filter((arg) => arg.startsWith('-'));
 
 // 2. Define the main CLI help menu string
 const helpMenu = `
-TraceWatch v0.1.0 - Root Cause Analysis for Modern Local Development
-Motto: "Don't show me the logs, show me what broke."
+TraceWatch  /  incident intelligence for local services
 
-Usage:
+USAGE
   tracewatch <command> [flags]
 
-Commands:
-  init                 Automatically detect frameworks and write the tracewatch.json config
-  start                Run all configured services concurrently in a single timeline
-  explain              Parse recent session logs and isolate the core root cause of failures
-  export               Generate a clean markdown diagnostic report with secrets redacted
+COMMANDS
+  init       Detect local frameworks and create tracewatch.json
+  start      Run configured services in one observable timeline
+  explain    Find the most likely root cause in the latest session
+  export     Write a redacted diagnostic report to Markdown
 
-Flags:
-  --web                Launch the local dashboard web console alongside process initialization
-  --help, -h           Display this operational command summary screen
+FLAGS
+  --web      Launch the live operations dashboard with start
+  --help     Show this command reference
 `;
 
 // 3. Handle help flag or missing parameters

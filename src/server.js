@@ -67,147 +67,142 @@ export function startDashboardServer(port, eventStore) {
       res.writeHead(200, { 'Content-Type': 'text/html' });
 
       const html = `
-  <!DOCTYPE html>
-  <html lang="en">
-  <head>
-    <meta charset="UTF-8">
-    <title>TraceWatch Visual Dashboard</title>
-    <style>
-      body { background: #0f172a; color: #e2e8f0; font-family: monospace; margin: 0; padding: 20px; display: flex; flex-direction: column; height: 95vh; }
-      header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #334155; padding-bottom: 15px; margin-bottom: 20px; flex-shrink: 0; }
-      h1 { margin: 0; color: #38bdf8; font-size: 20px; }
-      .motto { color: #64748b; font-style: italic; }
-      
-      .dashboard-container { display: flex; gap: 20px; flex-grow: 1; min-height: 0; }
-      #timeline { background: #020617; border: 1px solid #1e293b; border-radius: 6px; padding: 15px; flex-grow: 2; overflow-y: auto; }
-      #ai-pane { background: #0b1329; border: 1px solid #1e293b; border-radius: 6px; padding: 15px; flex-grow: 1; width: 400px; display: flex; flex-direction: column; }
-      
-      .explain-btn { background: #0284c7; color: white; border: none; padding: 10px 16px; font-family: monospace; font-weight: bold; border-radius: 4px; cursor: pointer; transition: background 0.2s; width: 100%; margin-bottom: 15px; }
-      .explain-btn:hover { background: #0369a1; }
-      
-      #analysis-result { flex-grow: 1; overflow-y: auto; font-size: 13px; line-height: 1.5; }
-      .log-line { display: flex; margin-bottom: 6px; font-size: 13px; line-height: 1.5; border-left: 3px solid transparent; padding-left: 8px; }
-      .time { color: #475569; margin-right: 15px; }
-      .badge { font-weight: bold; margin-right: 15px; width: 80px; }
-      .msg { flex-grow: 1; white-space: pre-wrap; }
-      
-      .clr-cyan { color: #22d3ee; }
-      .clr-magenta { color: #f472b6; }
-      .clr-yellow { color: #facc15; }
-      .clr-blue { color: #60a5fa; }
-      .clr-red { color: #f87171; border-left-color: #ef4444; background: rgba(239, 68, 68, 0.05); }
-      .evidence-box { background: #020617; padding: 10px; border-radius: 4px; border: 1px solid #1e293b; margin-top: 10px; }
-      
-      /* Status Badge Styling rules */
-      .status-live { color: #4ade80; font-weight: bold; }
-    </style>
-  </head>
-  <body>
-    <header>
-      <div>
-        <h1>TraceWatch Visual Console</h1>
-        <div class="motto">"Don't show me the logs, show me what broke."</div>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TraceWatch | Operations</title>
+  <style>
+    :root { --ink: #17201f; --muted: #70807d; --line: #dbe4e0; --paper: #f7faf8; --surface: #ffffff; --teal: #0d766e; --teal-soft: #e4f4ef; --red: #c84b45; --amber: #a76b13; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; background: var(--paper); color: var(--ink); font-family: "DM Sans", "Segoe UI", sans-serif; }
+    button, select { font: inherit; }
+    .topbar { height: 68px; padding: 0 34px; display: flex; align-items: center; justify-content: space-between; background: var(--surface); border-bottom: 1px solid var(--line); }
+    .brand { display: flex; align-items: center; gap: 11px; font-weight: 800; letter-spacing: -.02em; }
+    .brand-mark { width: 29px; height: 29px; display: grid; place-items: center; border-radius: 8px; color: white; background: var(--teal); font-size: 15px; }
+    .brand small { display: block; margin-top: 2px; color: var(--muted); font-size: 11px; font-weight: 500; letter-spacing: 0; }
+    .live-status { display: flex; align-items: center; gap: 8px; color: var(--teal); font-size: 12px; font-weight: 700; }
+    .live-dot { width: 8px; height: 8px; border-radius: 50%; background: #39a77e; box-shadow: 0 0 0 4px var(--teal-soft); }
+    .shell { width: min(1440px, calc(100% - 68px)); margin: 0 auto; padding: 34px 0 44px; }
+    .page-heading { display: flex; justify-content: space-between; align-items: flex-end; gap: 20px; margin-bottom: 27px; }
+    .eyebrow { color: var(--teal); font-size: 11px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+    h1 { margin: 7px 0 5px; font-size: clamp(25px, 3vw, 36px); letter-spacing: -.045em; line-height: 1; }
+    .subtitle { margin: 0; color: var(--muted); font-size: 14px; }
+    .refresh-note { color: var(--muted); font-family: "IBM Plex Mono", monospace; font-size: 11px; }
+    .metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 24px; }
+    .metric { padding: 18px 20px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; }
+    .metric-label { color: var(--muted); font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+    .metric-value { margin-top: 8px; font-size: 26px; font-weight: 800; letter-spacing: -.04em; }
+    .metric-value.alert { color: var(--red); }
+    .workspace { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(310px, .8fr); gap: 18px; align-items: stretch; }
+    .panel { min-height: 470px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+    .panel-head { min-height: 70px; padding: 17px 20px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--line); }
+    .panel-title { margin: 0; font-size: 14px; font-weight: 800; }
+    .panel-kicker { margin-top: 4px; color: var(--muted); font-size: 11px; }
+    select { padding: 7px 28px 7px 10px; color: var(--muted); background: var(--paper); border: 1px solid var(--line); border-radius: 6px; font-size: 11px; }
+    #timeline { max-height: 560px; overflow-y: auto; }
+    .empty { padding: 56px 24px; color: var(--muted); text-align: center; font-size: 13px; }
+    .log-line { display: grid; grid-template-columns: 74px 92px minmax(0, 1fr); gap: 12px; align-items: start; padding: 13px 20px; border-bottom: 1px solid #edf2ef; font-size: 12px; line-height: 1.45; }
+    .log-line:last-child { border-bottom: 0; }
+    .log-line.is-error { background: #fff9f8; }
+    .time { color: #93a19e; font-family: "IBM Plex Mono", monospace; font-size: 10px; padding-top: 2px; }
+    .badge { width: fit-content; padding: 3px 7px; border-radius: 4px; color: var(--teal); background: var(--teal-soft); font-size: 10px; font-weight: 800; letter-spacing: .04em; }
+    .badge.error { color: var(--red); background: #fbe9e7; }
+    .msg { color: #344340; overflow-wrap: anywhere; }
+    .insight { display: flex; flex-direction: column; }
+    .insight .panel-head { display: block; }
+    .explain-btn { margin-top: 15px; padding: 10px 13px; display: inline-flex; align-items: center; gap: 8px; color: white; background: var(--teal); border: 0; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 800; }
+    .explain-btn:hover { background: #095c57; }
+    #analysis-result { flex: 1; padding: 20px; color: var(--muted); font-size: 13px; line-height: 1.55; }
+    .finding-cause { color: var(--red); font-size: 18px; font-weight: 800; letter-spacing: -.025em; line-height: 1.2; }
+    .finding-meta { margin: 7px 0 20px; color: var(--muted); font-family: "IBM Plex Mono", monospace; font-size: 10px; }
+    .evidence-title { margin-bottom: 8px; color: var(--ink); font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+    .evidence-box { padding: 11px; background: var(--paper); border: 1px solid var(--line); border-radius: 6px; }
+    .evidence-item { padding: 7px 0; border-bottom: 1px solid var(--line); font-size: 11px; }
+    .evidence-item:last-child { border-bottom: 0; }
+    .evidence-time { color: var(--muted); font-family: "IBM Plex Mono", monospace; font-size: 10px; }
+    .next-step { margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--line); }
+    .next-step strong { color: var(--teal); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
+    @media (max-width: 860px) { .topbar { padding: 0 18px; } .shell { width: min(100% - 36px, 680px); padding-top: 25px; } .page-heading { display: block; } .refresh-note { display: block; margin-top: 15px; } .workspace { grid-template-columns: 1fr; } .metrics { gap: 8px; } .metric { padding: 14px; } .metric-value { font-size: 22px; } }
+    @media (max-width: 520px) { .metrics { grid-template-columns: 1fr; } .log-line { grid-template-columns: 64px 1fr; gap: 8px; } .badge { grid-column: 2; grid-row: 1; } .msg { grid-column: 2; } }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><span class="brand-mark">T</span><span>TraceWatch<small>incident intelligence</small></span></div>
+    <div id="status" class="live-status"><span class="live-dot"></span> Live stream connected</div>
+  </header>
+  <main class="shell">
+    <section class="page-heading">
+      <div><div class="eyebrow">Operations overview</div><h1>See what broke.</h1><p class="subtitle">A live view of your services, traces, and root-cause signals.</p></div>
+      <div class="refresh-note">STREAM / REAL-TIME</div>
+    </section>
+    <section class="metrics" aria-label="Session summary">
+      <div class="metric"><div class="metric-label">Events captured</div><div id="event-count" class="metric-value">0</div></div>
+      <div class="metric"><div class="metric-label">Active errors</div><div id="error-count" class="metric-value alert">0</div></div>
+      <div class="metric"><div class="metric-label">Services observed</div><div id="service-count" class="metric-value">0</div></div>
+    </section>
+    <section class="workspace">
+      <div class="panel">
+        <div class="panel-head"><div><h2 class="panel-title">Event stream</h2><div class="panel-kicker">Newest activity appears at the bottom</div></div><select id="level-filter" aria-label="Filter events"><option value="all">All events</option><option value="error">Errors only</option><option value="warn">Warnings only</option></select></div>
+        <div id="timeline"><div class="empty">Waiting for your services to emit events...</div></div>
       </div>
-      <div id="status" class="status-live">● Connected Stream Live</div>
-    </header>
+      <aside class="panel insight">
+        <div class="panel-head"><div class="eyebrow">Diagnostic workspace</div><h2 class="panel-title">Root cause</h2><div class="panel-kicker">Run analysis against the current session buffer</div><button class="explain-btn" onclick="triggerWebExplain()"><span>✦</span> Explain latest failure</button></div>
+        <div id="analysis-result">No analysis run yet. TraceWatch will connect related events and rank the most likely cause here.</div>
+      </aside>
+    </section>
+  </main>
+  <script>
+    const timeline = document.getElementById('timeline');
+    const source = new EventSource('/api/logs/stream');
+    const logs = [];
+    const services = new Set();
+    const filter = document.getElementById('level-filter');
+    const isFailure = (log) => log.level === 'error' || log.level === 'fatal';
 
-    <div class="dashboard-container">
-      <div id="timeline"></div>
-      <div id="ai-pane">
-        <button class="explain-btn" onclick="triggerWebExplain()">🔍 EXPLAIN LAST FAILURE</button>
-        <div id="analysis-result">
-          <span style="color: #64748b;">Click the button above to run local analysis rules on the session snapshot.</span>
-        </div>
-      </div>
-    </div>
+    function updateMetrics() {
+      document.getElementById('event-count').textContent = logs.length;
+      document.getElementById('error-count').textContent = logs.filter(isFailure).length;
+      document.getElementById('service-count').textContent = services.size;
+    }
 
-    <script>
-      const timeline = document.getElementById('timeline');
-      const source = new EventSource('/api/logs/stream');
+    function renderLogs() {
+      const visibleLogs = filter.value === 'all' ? logs : logs.filter((log) => log.level === filter.value || (filter.value === 'error' && isFailure(log)));
+      timeline.innerHTML = '';
+      if (!visibleLogs.length) { timeline.innerHTML = '<div class="empty">No events match this filter.</div>'; return; }
+      visibleLogs.forEach((log) => {
+        const line = document.createElement('div');
+        line.className = 'log-line' + (isFailure(log) ? ' is-error' : '');
+        const time = document.createElement('span'); time.className = 'time'; time.textContent = new Date(log.timestamp).toLocaleTimeString();
+        const badge = document.createElement('span'); badge.className = 'badge' + (isFailure(log) ? ' error' : ''); badge.textContent = log.service.toUpperCase();
+        const message = document.createElement('span'); message.className = 'msg'; message.textContent = log.message;
+        line.append(time, badge, message); timeline.appendChild(line);
+      });
+      timeline.scrollTop = timeline.scrollHeight;
+    }
 
-      source.onmessage = (event) => {
-        const log = JSON.parse(event.data);
-        
-        const lineEl = document.createElement('div');
-        lineEl.className = 'log-line ' + (log.level === 'error' || log.level === 'fatal' ? 'clr-red' : '');
-        
-        const timeEl = document.createElement('span');
-        timeEl.className = 'time';
-        timeEl.textContent = new Date(log.timestamp).toLocaleTimeString();
+    filter.addEventListener('change', renderLogs);
+    source.onmessage = (event) => { const log = JSON.parse(event.data); logs.push(log); services.add(log.service); updateMetrics(); renderLogs(); };
+    source.onerror = () => { document.getElementById('status').innerHTML = '<span class="live-dot" style="background:#c84b45;box-shadow:0 0 0 4px #fbe9e7"></span> Stream disconnected'; };
 
-        const badgeEl = document.createElement('span');
-        let colorClass = 'clr-blue';
-        if (log.service === 'frontend') colorClass = 'clr-cyan';
-        if (log.service === 'auth-api') colorClass = 'clr-magenta';
-        if (log.level === 'error' || log.level === 'fatal') colorClass = 'clr-red';
-        
-        badgeEl.className = 'badge ' + colorClass;
-        badgeEl.textContent = log.service.toUpperCase();
-
-        const msgEl = document.createElement('span');
-        msgEl.className = 'msg';
-        msgEl.textContent = log.message;
-
-        lineEl.appendChild(timeEl);
-        lineEl.appendChild(badgeEl);
-        lineEl.appendChild(msgEl);
-        
-        timeline.appendChild(lineEl);
-        timeline.scrollTop = timeline.scrollHeight;
-      };
-
-      source.onerror = () => {
-        document.getElementById('status').textContent = '○ Connection Severed';
-        document.getElementById('status').className = '';
-        document.getElementById('status').style.color = '#f87171';
-      };
-
-      async function triggerWebExplain() {
-        const container = document.getElementById('analysis-result');
-        container.innerHTML = '<span style="color: #38bdf8;">Analyzing active trace arrays...</span>';
-        
-        try {
-          const res = await fetch('/api/explain');
-          const data = await res.json();
-          
-          if (!data.found) {
-            container.innerHTML = '<span style="color: #facc15;">🔍 TraceWatch swept the active timeline buffer but detected zero active rule violations.</span>';
-            return;
-          }
-          
-          const f = data.finding;
-          let html = \`
-            <div style="color: #f87171; font-weight: bold; font-size: 15px; margin-bottom: 5px;">\${f.cause}</div>
-            <div style="color: #64748b; font-size: 11px; margin-bottom: 15px;">\${Math.round(f.confidence * 100)}% confidence · rule: \${f.rule}</div>
-            
-            <div style="font-weight: bold; margin-bottom: 5px; color: #e2e8f0;">evidence:</div>
-            <div class="evidence-box">
-          \`;
-          
-          f.evidence.forEach(e => {
-            html += \`<div style="font-size: 12px; margin-bottom: 4px; color: #cbd5e1;">
-              <span style="color: #475569;">[\${new Date(e.timestamp).toLocaleTimeString()}]</span> 
-              <span style="color: #ef4444; font-weight: bold;">[\${e.service.toUpperCase()}]</span> \${e.message}
-            </div>\`;
-          });
-          
-          html += \`
-            </div>
-            <div style="margin-top: 15px;">
-              <span style="color: #22d3ee; font-weight: bold;">next:</span> 
-              <span style="color: #cbd5e1;">\${f.fix}</span>
-                </div>
-              \`;
-              
-              container.innerHTML = html;
-            } catch (err) {
-              container.innerHTML = '<span style="color: #f87171;">Failed to communicate with diagnostic endpoint.</span>';
-            }
-          }
-        </script>
-      </body>
-      </html>
-      `;
+    async function triggerWebExplain() {
+      const container = document.getElementById('analysis-result');
+      container.textContent = 'Analyzing current session...';
+      try {
+        const data = await (await fetch('/api/explain')).json();
+        if (!data.found) { container.textContent = 'No active rule violations found in the current session.'; return; }
+        const f = data.finding;
+        let html = '<div class="finding-cause">' + f.cause + '</div><div class="finding-meta">' + Math.round(f.confidence * 100) + '% confidence · ' + f.rule + '</div><div class="evidence-title">Evidence</div><div class="evidence-box">';
+        f.evidence.forEach((e) => { html += '<div class="evidence-item"><span class="evidence-time">' + new Date(e.timestamp).toLocaleTimeString() + '</span> &nbsp; <strong>' + e.service.toUpperCase() + '</strong><br>' + e.message + '</div>'; });
+        html += '</div><div class="next-step"><strong>Recommended next step</strong><div>' + f.fix + '</div></div>';
+        container.innerHTML = html;
+      } catch (error) { container.textContent = 'The diagnostic endpoint is unavailable. Check the live stream connection.'; }
+    }
+  </script>
+</body>
+</html>`;
       res.end(html);
       return;
     }

@@ -8,7 +8,7 @@ import pc from 'picocolors';
  */
 
 export function formatLogEvent(event, serviceColor = 'white') {
-  // Format human-readable time format string
+  // Format a compact timestamp for high-volume terminal output.
   let timeString = '';
   try {
     const date = new Date(event.timestamp);
@@ -20,11 +20,12 @@ export function formatLogEvent(event, serviceColor = 'white') {
     timeString = '00:00:00.000';
   }
 
-  // Select appropriate text colorizer depending on configured profile settings
+  // Select the configured service color for a stable visual identity.
   const colorizer = pc[serviceColor] || pc.white;
 
-  // Format service identifier badge string with unified padding layout
-  const serviceBadge = colorizer(event.service.padEnd(8).slice(0, 8));
+  const serviceBadge = colorizer(
+    pc.bold(event.service.padEnd(10).slice(0, 10)),
+  );
   const grayTimestamp = pc.gray(timeString);
 
   //Highlight lines that are flagged with high severity issues
@@ -40,7 +41,16 @@ export function formatLogEvent(event, serviceColor = 'white') {
   // Append context flags if an explicit correlation requestId tracking link is found
   const reqStr = event.requestId ? pc.gray(` [req:${event.requestId}]`) : '';
 
-  return `${grayTimestamp}  ${serviceBadge}  ${messageText}${reqStr}`;
+  const levelMarker =
+    event.level === 'fatal'
+      ? pc.red('!')
+      : event.level === 'error'
+        ? pc.red('x')
+        : event.level === 'warn'
+          ? pc.yellow('~')
+          : pc.green('·');
+
+  return `${levelMarker} ${grayTimestamp}  ${serviceBadge}  ${messageText}${reqStr}`;
 }
 
 /**
