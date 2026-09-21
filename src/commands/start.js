@@ -6,7 +6,7 @@ import { spawnServices } from '../collector.js';
 import { EventStore } from '../store.js';
 import { parseLogLine } from '../parsers/index.js';
 import { renderToConsole } from '../render.js';
-import { startDashboardSever, broadcastLog } from '../server.js';
+import { startDashboardServer, broadcastLog } from '../server.js';
 
 /**
  * Handles execution of the `tracewatch start` command sequence.
@@ -48,12 +48,14 @@ export function handleStart(options = {}) {
   // 3. Conditionally spin up the local HTTP web console if the --web flag is provided
   if (options.web) {
     const targetPort = config.port || 9999;
-    startDashboardSever(targetPort, store);
-    console.log(
-      pc.green(
-        `🌐 Visual UI Server actively listening at http://localhost:${targetPort}`,
-      ),
-    );
+    const dashboardServer = startDashboardServer(targetPort, store);
+    dashboardServer.once('listening', () => {
+      console.log(
+        pc.green(
+          `🌐 Visual UI Server actively listening at http://localhost:${targetPort}`,
+        ),
+      );
+    });
   }
 
   // Define an active tracking map to look up service colors quickly

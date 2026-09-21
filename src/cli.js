@@ -21,7 +21,6 @@ Commands:
   start                Run all configured services concurrently in a single timeline
   explain              Parse recent session logs and isolate the core root cause of failures
   export               Generate a clean markdown diagnostic report with secrets redacted
-  serve                Replay and review a finished developer logging session in the browser
 
 Flags:
   --web                Launch the local dashboard web console alongside process initialization
@@ -61,10 +60,6 @@ switch (command) {
     const noRedact = flags.includes('--no-redact');
 
     handleExport({ out: customFile, redact: !noRedact }); // <-- CHANGE THIS LINE
-    break;
-
-  case 'serve':
-    console.log('🌐 Mounting session playback micro-server...');
     break;
 
   default:
