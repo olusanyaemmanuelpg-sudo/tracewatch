@@ -2,6 +2,7 @@ import { fileURLToPath } from 'url';
 import { handleInit } from './commands/init.js';
 import { handleStart } from './commands/start.js';
 import { handleExplain } from './commands/explain.js';
+import { handleExport } from './commands/export.js';
 
 // 1. Extract the raw arguments from the terminal process execution
 
@@ -51,7 +52,15 @@ switch (command) {
     break;
 
   case 'export':
-    console.log('📝 Generating markdown performance audit trail...');
+    // Parse flag modifiers if user overrides out file configurations
+    const outFlagIndex = flags.indexOf('--out');
+    let customFile = 'report.md';
+    if (outFlagIndex !== -1 && flags[outFlagIndex + 1]) {
+      customFile = flags[outFlagIndex + 1];
+    }
+    const noRedact = flags.includes('--no-redact');
+
+    handleExport({ out: customFile, redact: !noRedact }); // <-- CHANGE THIS LINE
     break;
 
   case 'serve':
