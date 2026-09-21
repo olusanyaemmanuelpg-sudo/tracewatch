@@ -1,6 +1,7 @@
 import { fileURLToPath } from 'url';
 import { handleInit } from './commands/init.js';
 import { handleStart } from './commands/start.js';
+import { handleExplain } from './commands/explain.js';
 
 // 1. Extract the raw arguments from the terminal process execution
 
@@ -46,7 +47,7 @@ switch (command) {
     break;
 
   case 'explain':
-    console.log('🧠 Analyzing recent session logs for root cause isolation...');
+    handleExplain();
     break;
 
   case 'export':
