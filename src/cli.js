@@ -5,8 +5,13 @@ import { handleExplain } from './commands/explain.js';
 import { handleExport } from './commands/export.js';
 
 // 1. Extract the raw arguments from the terminal process execution
+const rawArgs = process.argv.slice(2);
+// Detect if a help modifier is present anywhere in the inputs
+const isHelpRequested = rawArgs.includes('--help') || rawArgs.includes('-h');
 
-const [, , command, ...flags] = process.argv;
+// 2. Safely isolate the command action word and separate flags
+const command = rawArgs.find((arg) => !arg.startsWith('-'));
+const flags = rawArgs.filter((arg) => arg.startsWith('-'));
 
 // 2. Define the main CLI help menu string
 const helpMenu = `
@@ -28,8 +33,10 @@ Flags:
 `;
 
 // 3. Handle help flag or missing parameters
-if (!command || flags.includes('--help') || flags.includes('-h')) {
-  console.log(helpMenu);
+if (!command || isHelpRequested) {
+  // Store trimmed text explicitly to prevent execution leakage
+  const cleanHelpText = String(helpMenu).trim();
+  console.log(cleanHelpText);
   process.exit(0);
 }
 
