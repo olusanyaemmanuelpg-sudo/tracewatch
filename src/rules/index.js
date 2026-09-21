@@ -20,7 +20,7 @@ export const poolExhausted = {
 
     return {
       rule: this.id,
-      cause: `${errorLine.service} could not acquire a database connection â€” the database pool is completely exhausted.`,
+      cause: `${errorLine.service} could not acquire a database connection as the database pool is completely exhausted.`,
       confidence,
       evidence: [errorLine],
       fix: 'Increase the pool max size parameter in your database configuration file, or find the missing query path that fails to release its connection client hooks back to the pool.',

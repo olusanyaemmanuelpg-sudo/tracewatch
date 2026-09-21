@@ -1,12 +1,12 @@
 import fs from 'fs';
 import path from 'path';
 import pc from 'picocolors';
-import readline from 'readline';
 import { loadConfig } from '../config.js';
 import { spawnServices } from '../collector.js';
 import { EventStore } from '../store.js';
 import { parseLogLine } from '../parsers/index.js';
 import { renderToConsole } from '../render.js';
+import { startDashboardSever, broadcastLog } from '../server.js';
 
 /**
  * Handles execution of the `tracewatch start` command sequence.
@@ -23,8 +23,14 @@ export function handleStart(options = {}) {
     return;
   }
 
-  if (!config || !Array.isArray(config.services) || config.services.length === 0) {
-    console.error(pc.red('❌ No services configured. Check your TraceWatch config.'));
+  if (
+    !config ||
+    !Array.isArray(config.services) ||
+    config.services.length === 0
+  ) {
+    console.error(
+      pc.red('❌ No services configured. Check your TraceWatch config.'),
+    );
     return;
   }
 
@@ -38,6 +44,17 @@ export function handleStart(options = {}) {
   // 2. Instantiate our fixed-size 50k log repository ring buffer
 
   const store = new EventStore(50000);
+
+  // 3. Conditionally spin up the local HTTP web console if the --web flag is provided
+  if (options.web) {
+    const targetPort = config.port || 9999;
+    startDashboardSever(targetPort, store);
+    console.log(
+      pc.green(
+        `🌐 Visual UI Server actively listening at http://localhost:${targetPort}`,
+      ),
+    );
+  }
 
   // Define an active tracking map to look up service colors quickly
   const serviceColorMap = new Map();
@@ -57,6 +74,10 @@ export function handleStart(options = {}) {
 
     // Render cleanly to the terminal timeline
     renderToConsole(savedEvent, rawLog.color);
+
+    if (options.web) {
+      broadcastLog(savedEvent);
+    }
   };
   // 4. Fire up background processes concurrently
   console.log(
