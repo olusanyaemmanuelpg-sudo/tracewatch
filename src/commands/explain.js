@@ -3,7 +3,7 @@ import path from 'path';
 import pc from 'picocolors';
 import { correlateEvents } from '../correlate.js';
 import { analyzeTraces } from '../analyze.js';
-import { formatLogLine } from '../render.js';
+import { formatLogEvent } from '../render.js';
 
 /**
  * Handles execution of the `tracewatch explain` command sequence.
@@ -80,7 +80,7 @@ export function handleExplain() {
   console.log(pc.bold('evidence'));
   topFinding.evidence.forEach((ev) => {
     // Render out structural log entries wrapped in light gray formatting indicators
-    console.log(`  ${formatLogLine(ev, 'white')}`);
+    console.log(`  ${formatLogEvent(ev, 'white')}`);
   });
 
   console.log(`\n${pc.bold(pc.cyan('next'))}  ${topFinding.fix}\n`);
