@@ -97,11 +97,30 @@ export function handleStart(options = {}) {
     )
     .join('  ');
 
+  const managedServices = config.services.filter(
+    (service) => service.managed !== false,
+  );
+  const attachedServices = config.services.filter(
+    (service) => service.managed === false,
+  );
+
   console.log(
-    pc.cyan(`  services   ${config.services.length} configured and starting`),
+    pc.cyan(`  services   ${managedServices.length} configured and starting`),
   );
   console.log(`  runtime   ${servicesSummary}`);
-  spawnServices(config.services, onIncomingLog);
+  if (attachedServices.length > 0) {
+    console.log(
+      pc.yellow(
+        `  attached   ${attachedServices.map((service) => service.name).join(', ')} already running`,
+      ),
+    );
+    console.log(
+      pc.gray(
+        '             TraceWatch will not launch attached services. Their existing terminal output cannot be captured retroactively.',
+      ),
+    );
+  }
+  spawnServices(managedServices, onIncomingLog);
 
   console.log(pc.green('\n  status     stream established'));
   console.log(pc.gray('  command   Ctrl+C to stop the workspace safely.\n'));

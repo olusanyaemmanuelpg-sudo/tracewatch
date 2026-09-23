@@ -8,6 +8,7 @@ import { parseLogLine } from '../src/parsers/index.js';
 import { renderToConsole, formatEvidenceLine } from '../src/render.js';
 import { parseGeminiResponse } from '../src/analyze-ai.js';
 import { handleExplain } from '../src/commands/explain.js';
+import { detectLocalStack } from '../src/config.js';
 
 test('parseLogLine prioritizes fatal and error levels over info', () => {
   assert.equal(parseLogLine('fatal: database connection lost').level, 'fatal');
@@ -96,4 +97,41 @@ test('formatEvidenceLine renders AI evidence strings without crashing', () => {
 
   assert.equal(typeof rendered, 'string');
   assert.match(rendered, /request failed/);
+});
+
+test('detectLocalStack discovers services in frontend and backend folders', () => {
+  const originalCwd = process.cwd();
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'tracewatch-stack-'));
+
+  fs.mkdirSync(path.join(tempDir, 'frontend'));
+  fs.mkdirSync(path.join(tempDir, 'backend'));
+  fs.writeFileSync(
+    path.join(tempDir, 'frontend', 'package.json'),
+    JSON.stringify({
+      scripts: { dev: 'npm run dev' },
+      dependencies: { vite: '^6.0.0' },
+    }),
+  );
+  fs.writeFileSync(
+    path.join(tempDir, 'backend', 'package.json'),
+    JSON.stringify({
+      scripts: { start: 'node server.js' },
+      dependencies: { express: '^5.0.0' },
+    }),
+  );
+
+  process.chdir(tempDir);
+  try {
+    const services = detectLocalStack();
+    assert.deepEqual(
+      services.map(({ name, command, cwd }) => ({ name, command, cwd })),
+      [
+        { name: 'backend', command: 'npm start', cwd: 'backend' },
+        { name: 'frontend', command: 'npm run dev', cwd: 'frontend' },
+      ],
+    );
+  } finally {
+    process.chdir(originalCwd);
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
 });

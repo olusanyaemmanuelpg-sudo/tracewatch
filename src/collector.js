@@ -2,6 +2,12 @@ import { spawn } from 'child_process';
 import readline from 'readline';
 import pc from 'picocolors';
 
+function isPortConflict(line) {
+  return /eaddrinuse|address already in use|port\s+\d+\s+is already in use|port.*in use/i.test(
+    line,
+  );
+}
+
 /**
  * Spawns and manages a group of configured local application services.
  * @param {Array<Object>} services - Array of service configurations from tracewatch.json
@@ -14,10 +20,12 @@ export function spawnServices(services, onLogEvent) {
 
   services.forEach((service) => {
     const [cmd, ...arg] = service.command.split(' ');
+    let portConflict = false;
 
     // Spawn the service inside a system shell to support cross-platform path resolution
     const childProcess = spawn(cmd, arg, {
       shell: true,
+      cwd: service.cwd || process.cwd(),
       env: { ...process.env, FORCE_COLOR: '1' },
     });
 
@@ -30,6 +38,10 @@ export function spawnServices(services, onLogEvent) {
         input: childProcess.stdout,
       });
       stdoutReader.on('line', (line) => {
+        if (isPortConflict(line)) {
+          portConflict = true;
+          return;
+        }
         onLogEvent({
           service: service.name,
           stream: 'stdout',
@@ -45,6 +57,10 @@ export function spawnServices(services, onLogEvent) {
         input: childProcess.stderr,
       });
       stderrReader.on('line', (line) => {
+        if (isPortConflict(line)) {
+          portConflict = true;
+          return;
+        }
         onLogEvent({
           service: service.name,
           stream: 'stderr',
@@ -57,17 +73,30 @@ export function spawnServices(services, onLogEvent) {
     //Handle sudden internal process craches or standard exit behaviours
     childProcess.on('close', (code) => {
       if (code !== 0 && code !== null) {
-        console.log(
-          pc.red(
-            `\n❌ Service [${service.name}] crashed or closed unexpectedly with code ${code}.`,
-          ),
-        );
+        if (portConflict) {
+          console.log(
+            pc.yellow(
+              `\n⚠️  Service [${service.name}] could not start because its port is already in use.`,
+            ),
+          );
+          console.log(
+            pc.gray(
+              '   An existing process may still be serving it; stop that process or change its port before restarting it.',
+            ),
+          );
+        } else {
+          console.log(
+            pc.red(
+              `\n❌ Service [${service.name}] crashed or closed unexpectedly with code ${code}.`,
+            ),
+          );
+        }
       }
     });
 
     // Implement graceful shutdown on SIGINT (Ctrl+C) to terminate all child processes on exit
     const cleanup = () => {
-      activeProcesses.forEach(({ name, process: p }) => {
+      activeProcesses.forEach(({ process: p }) => {
         if (!p.killed) {
           try {
             p.kill('SIGINT');

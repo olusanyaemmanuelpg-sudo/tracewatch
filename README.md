@@ -93,7 +93,31 @@ Running `tracewatch init` creates a `tracewatch.json` profile in the current dir
 }
 ```
 
-Edit the `services` array when you need to monitor a custom command.
+When you run `tracewatch init` from a parent folder, TraceWatch also checks its immediate subfolders for Node.js and Python services. Detected subfolder services include a `cwd` field so each command runs from the correct project directory:
+
+```json
+{
+  "name": "backend",
+  "cwd": "backend",
+  "command": "npm start",
+  "color": "magenta"
+}
+```
+
+Edit the `services` array when you need to monitor a custom command. TraceWatch should normally be the process that launches the service so it can capture its output. If a service is already running elsewhere, mark it as attached:
+
+```json
+{
+  "name": "backend",
+  "cwd": "backend",
+  "command": "npm start",
+  "port": 3000,
+  "managed": false,
+  "color": "magenta"
+}
+```
+
+TraceWatch will leave attached services running and will not create a duplicate process. Because operating systems do not expose another terminal's stdout to a new process, attached services are not included in the live log stream. If a managed service reports that its port is already in use, TraceWatch displays a startup warning and filters that duplicate-start error from the incident timeline.
 
 ## Screenshots
 

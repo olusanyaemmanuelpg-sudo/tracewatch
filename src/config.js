@@ -8,8 +8,29 @@ import path from 'path';
 export function detectLocalStack() {
   const cwd = process.cwd();
   const services = [];
-  services.push(...detectNodeServices(cwd));
-  services.push(...detectPythonServices(cwd));
+  const projectDirs = [
+    { directory: cwd, relativePath: '.' },
+    ...fs
+      .readdirSync(cwd, { withFileTypes: true })
+      .filter(
+        (entry) =>
+          entry.isDirectory() &&
+          !entry.name.startsWith('.') &&
+          entry.name !== 'node_modules',
+      )
+      .map((entry) => ({
+        directory: path.join(cwd, entry.name),
+        relativePath: entry.name,
+      })),
+  ];
+
+  for (const project of projectDirs) {
+    services.push(
+      ...detectNodeServices(project.directory, project.relativePath),
+      ...detectPythonServices(project.directory, project.relativePath),
+    );
+  }
+
   if (services.length === 0) {
     services.push({
       name: 'unknown-service',
@@ -22,7 +43,7 @@ export function detectLocalStack() {
 }
 
 /** * Detect Node.js services */
-function detectNodeServices(cwd) {
+function detectNodeServices(cwd, relativePath = '.') {
   const services = [];
   const packageJsonPath = path.join(cwd, 'package.json');
 
@@ -68,22 +89,26 @@ function detectNodeServices(cwd) {
 
     const backendFramework = Object.keys(backendFrameworks).find(has);
 
+    const workingDirectory = relativePath === '.' ? undefined : relativePath;
+
     if (frontendFramework) {
       services.push({
-        name: 'frontend',
+        name: relativePath === '.' ? 'frontend' : path.basename(relativePath),
         type: 'frontend',
         framework: frontendFrameworks[frontendFramework],
         command,
         color: 'cyan',
+        ...(workingDirectory ? { cwd: workingDirectory } : {}),
       });
     }
-    if (backendFramework) {
+    if (backendFramework && !frontendFramework) {
       services.push({
-        name: 'backend',
+        name: relativePath === '.' ? 'backend' : path.basename(relativePath),
         type: 'backend',
         framework: backendFrameworks[backendFramework],
         command,
         color: 'magenta',
+        ...(workingDirectory ? { cwd: workingDirectory } : {}),
       });
     }
   } catch (error) {
@@ -92,7 +117,7 @@ function detectNodeServices(cwd) {
   return services;
 }
 /** * Detect Python services */
-function detectPythonServices(cwd) {
+function detectPythonServices(cwd, relativePath = '.') {
   const services = [];
   const requirementsPath = path.join(cwd, 'requirements.txt');
   const pyprojectPath = path.join(cwd, 'pyproject.toml');
@@ -112,32 +137,38 @@ function detectPythonServices(cwd) {
   }
 
   const lower = content.toLowerCase();
+  const workingDirectory = relativePath === '.' ? undefined : relativePath;
+  const name =
+    relativePath === '.' ? 'python-api' : path.basename(relativePath);
 
   if (lower.includes('fastapi')) {
     services.push({
-      name: 'python-api',
+      name,
       type: 'backend',
       framework: 'FastAPI',
       command: 'uvicorn main:app --reload',
       color: 'yellow',
+      ...(workingDirectory ? { cwd: workingDirectory } : {}),
     });
   }
   if (lower.includes('flask')) {
     services.push({
-      name: 'python-api',
+      name,
       type: 'backend',
       framework: 'Flask',
       command: 'python app.py',
       color: 'yellow',
+      ...(workingDirectory ? { cwd: workingDirectory } : {}),
     });
   }
   if (lower.includes('django')) {
     services.push({
-      name: 'python-api',
+      name,
       type: 'backend',
       framework: 'Django',
       command: 'python manage.py runserver',
       color: 'yellow',
+      ...(workingDirectory ? { cwd: workingDirectory } : {}),
     });
   }
   return services;
