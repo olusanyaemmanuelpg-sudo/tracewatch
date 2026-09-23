@@ -1,6 +1,12 @@
 # TraceWatch
 
-TraceWatch helps developers quickly diagnose local application crashes by connecting the dots across multiple services. It watches local service outputs in real time, correlates fragmented logs into logical traces, and automatically pinpoints exactly what broke and how to fix it. No complex setup is required, just straightforward incident intelligence that works out of the box.
+TraceWatch helps developers quickly diagnose local application crashes by connecting the dots across multiple services. It watches local service outputs in real time, correlates fragmented logs into logical traces, and identifies the most likely root cause and next fix. No complex setup is required, just straightforward incident intelligence that works out of the box.
+
+## Requirements
+
+- Node.js 18 or newer
+- npm
+- A Google Gemini API key is optional and only needed for AI fallback diagnosis
 
 ## System Architecture
 
@@ -67,11 +73,48 @@ If an error occurs, you can ask the tool to explain the latest failure. TraceWat
 tracewatch explain
 ```
 
+The web dashboard is available at [http://localhost:9999](http://localhost:9999) when you use `--web`. The port can be changed in `tracewatch.json`.
+
 To export a sanitized, credential-free diagnostic report to a markdown file, run the export command:
 
 ```bash
 tracewatch export --out diagnosis.md
 ```
+
+By default, exported reports redact tokens, passwords, secrets, and database credentials. To disable redaction for a private local report only:
+
+```bash
+tracewatch export --out diagnosis.md --no-redact
+```
+
+### Optional AI Setup
+
+If local rules do not recognize an incident, TraceWatch can ask Gemini for a fallback diagnosis. Set the key before running `tracewatch explain` or using the dashboard's **Explain latest failure** action:
+
+```bash
+export GEMINI_API_KEY="your-key"
+```
+
+TraceWatch still works without this key; only the AI fallback is unavailable.
+
+### Generated Configuration
+
+Running `tracewatch init` creates a `tracewatch.json` profile in the current directory. A typical profile looks like this:
+
+```json
+{
+  "port": 9999,
+  "services": [
+    {
+      "name": "demo-app",
+      "command": "node fixtures/demo/app.js",
+      "color": "blue"
+    }
+  ]
+}
+```
+
+Edit the `services` array when you need to monitor a custom command.
 
 ## Screenshots
 
@@ -202,6 +245,14 @@ No body required.
 ## Contributing
 
 Contributions are welcome. Please open an issue to discuss proposed changes before submitting a pull request. Ensure that any new rule additions include appropriate regex matching logic and test coverage.
+
+## Testing
+
+Run the test suite with:
+
+```bash
+npm test
+```
 
 ## Author Info
 

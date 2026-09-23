@@ -8,7 +8,7 @@
     "tracewatch": "./bin/tracewatch.js"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 0",
+    "test": "node --test --test-reporter=spec",
     "demo": "cp fixtures/demo/tracewatch.json . && tracewatch start --web"
   },
   "keywords": [],
