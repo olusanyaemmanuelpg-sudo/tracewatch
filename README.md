@@ -43,7 +43,7 @@ npm link
 
 ## Usage
 
-TraceWatch operates through a simple command-line interface. 
+TraceWatch operates through a simple command-line interface.
 
 First, initialize the workspace in your project directory. This scans your local files and generates a configuration profile:
 
@@ -69,12 +69,45 @@ To export a sanitized, credential-free diagnostic report to a markdown file, run
 tracewatch export --out diagnosis.md
 ```
 
+## Screenshots
+
+<p align="center">
+  <img src="docs/dashboard.png" alt="TraceWatch live operations dashboard" width="100%" />
+</p>
+
+<table>
+  <tr>
+    <td><img src="docs/start-web.png" alt="TraceWatch start command with web dashboard" /></td>
+    <td><img src="docs/explain.png" alt="TraceWatch explain command showing root cause" /></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>Live monitoring startup</sub></td>
+    <td align="center"><sub>Root-cause explanation</sub></td>
+  </tr>
+  <tr>
+    <td><img src="docs/init.png" alt="TraceWatch init command scanning the project" /></td>
+    <td><img src="docs/start.png" alt="TraceWatch start command with incident logs" /></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>Automatic stack discovery</sub></td>
+    <td align="center"><sub>Terminal incident stream</sub></td>
+  </tr>
+  <tr>
+    <td><img src="docs/export.png" alt="TraceWatch export command" /></td>
+    <td><img src="docs/report-md.png" alt="TraceWatch generated markdown report" /></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>Report export workflow</sub></td>
+    <td align="center"><sub>Generated diagnostic report</sub></td>
+  </tr>
+</table>
+
 ## Features
 
-* **Automatic Stack Discovery**: Scans the project directory and detects Node.js or Python frameworks to build a configuration profile automatically.
-* **Live Operations Dashboard**: Streams structured logs to a browser UI while highlighting critical errors and correlating cross-service events.
-* **Redacted Reporting**: Strips out credential strings, access tokens, and passwords before exporting diagnostic markdown reports.
-* **Root Cause Analysis**: Sweeps over trace timelines to match error signatures against known failures like exhausted connection pools or missing environment variables.
+- **Automatic Stack Discovery**: Scans the project directory and detects Node.js or Python frameworks to build a configuration profile automatically.
+- **Live Operations Dashboard**: Streams structured logs to a browser UI while highlighting critical errors and correlating cross-service events.
+- **Redacted Reporting**: Strips out credential strings, access tokens, and passwords before exporting diagnostic markdown reports.
+- **Root Cause Analysis**: Sweeps over trace timelines to match error signatures against known failures like exhausted connection pools or missing environment variables.
 
 ```mermaid
 sequenceDiagram
@@ -93,18 +126,19 @@ sequenceDiagram
 
 ## Technologies Used
 
-| Category | Technology |
-| :--- | :--- |
-| Runtime | Node.js |
-| Terminal Output | Picocolors |
-| Dashboard UI | HTML5, CSS3, Vanilla JavaScript |
-| Data Storage | JSON-Lines |
+| Category        | Technology                      |
+| :-------------- | :------------------------------ |
+| Runtime         | Node.js                         |
+| Terminal Output | Picocolors                      |
+| Dashboard UI    | HTML5, CSS3, Vanilla JavaScript |
+| Data Storage    | JSON-Lines                      |
 
 ## API Documentation
 
 When the web dashboard is running, TraceWatch exposes a lightweight local HTTP server with the following endpoints.
 
 #### GET /api/logs/stream
+
 **Description**: Opens a Server-Sent Events connection that streams live log data as it is captured from the running services.
 
 **Request**:
@@ -112,21 +146,25 @@ No body required.
 
 **Response**:
 The endpoint returns a continuous text stream formatted as SSE.
+
 ```text
 data: {"id":"evt_123","timestamp":"2026-09-21T22:41:04.413Z","service":"api","level":"info","message":"validating payload","requestId":null}
 
 ```
 
 **Errors**:
-* 404: Endpoint not found if requested with unsupported methods.
+
+- 404: Endpoint not found if requested with unsupported methods.
 
 #### GET /api/explain
+
 **Description**: Triggers an immediate analysis over the current session buffer and returns the highest confidence root cause finding.
 
 **Request**:
 No body required.
 
 **Response**:
+
 ```json
 {
   "found": true,
@@ -150,7 +188,8 @@ No body required.
 ```
 
 **Errors**:
-* 200: Returns `{"found": false}` if no rule violations are detected.
+
+- 200: Returns `{"found": false}` if no rule violations are detected.
 
 ## Contributing
 
@@ -158,7 +197,7 @@ Contributions are welcome. Please open an issue to discuss proposed changes befo
 
 ## Author Info
 
-* LinkedIn: https://linkedin.com/in/olusanya-emmanuel-21546536a
+- LinkedIn: https://linkedin.com/in/olusanya-emmanuel-21546536a
 
 ---
 

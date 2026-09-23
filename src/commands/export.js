@@ -79,8 +79,10 @@ export function handleExport(options = {}) {
 
   if (topFinding) {
     md += `## 🚨 Root Cause Diagnosis\n`;
-    md += `> **${topFinding.cause}**\n`;
-    md += `> *Confidence Score:* ${Math.round(topFinding.confidence * 100)}% | *Rule Triggered:* \`\ ${topFinding.rule}\`\n\n`;
+    md += `> **${topFinding.cause}**\n\n`;
+    md += `- Confidence: ${Math.round(topFinding.confidence * 100)}%\n`;
+    md += `- Rule triggered: ${topFinding.rule}\n`;
+    md += `- Status: incident\n\n`;
     md += `### 💡 Suggested Fix Action\n`;
     md += `${topFinding.fix}\n\n`;
   } else {

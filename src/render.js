@@ -6,7 +6,39 @@ export function formatStatusHeader(title, subtitle) {
   return `${titleText}  ${subtitleText}`;
 }
 
-export function formatIncidentSummary(cause, confidence, rule, source = 'rule') {
+export function formatStatusTag(label, tone = 'neutral') {
+  const palette = {
+    success: { bg: pc.green, fg: pc.black },
+    warn: { bg: pc.yellow, fg: pc.black },
+    danger: { bg: pc.red, fg: pc.white },
+    info: { bg: pc.cyan, fg: pc.black },
+    neutral: { bg: pc.gray, fg: pc.white },
+  };
+
+  const theme = palette[tone] || palette.neutral;
+  return theme.bg(theme.fg(` ${String(label).toUpperCase()} `));
+}
+
+export function formatServiceBadge(serviceName, tone = 'neutral') {
+  const cleanName = String(serviceName || 'service').toUpperCase();
+  const palette = {
+    neutral: pc.cyan,
+    success: pc.green,
+    warn: pc.yellow,
+    danger: pc.red,
+    info: pc.magenta,
+  };
+
+  const colorFn = palette[tone] || palette.neutral;
+  return colorFn(` ${cleanName} `);
+}
+
+export function formatIncidentSummary(
+  cause,
+  confidence,
+  rule,
+  source = 'rule',
+) {
   const level = source === 'ai' ? pc.magenta('AI') : pc.cyan('RULE');
   const confidenceText = `${Math.round((Number(confidence) || 0) * 100)}% confidence`;
   return `${pc.bold(pc.red(cause))}\n${pc.gray(`${confidenceText} · ${level} · ${rule}`)}`;

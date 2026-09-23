@@ -5,7 +5,12 @@ import { loadConfig } from '../config.js';
 import { spawnServices } from '../collector.js';
 import { EventStore } from '../store.js';
 import { parseLogLine } from '../parsers/index.js';
-import { renderToConsole, formatStatusHeader } from '../render.js';
+import {
+  renderToConsole,
+  formatStatusHeader,
+  formatStatusTag,
+  formatServiceBadge,
+} from '../render.js';
 import { startDashboardServer, broadcastLog } from '../server.js';
 import { createSpinner } from '../cli-ui.js';
 
@@ -38,10 +43,12 @@ export function handleStart(options = {}) {
     return;
   }
 
-  console.log(pc.bold('\n╭──────────────────────────────────────────╮'));
-  console.log(formatStatusHeader('TraceWatch', 'live service workspace'));
+  console.log(pc.cyan('\n╭──────────────────────────────────────────╮'));
+  console.log(
+    `${pc.bold('TRACEWATCH')} ${formatStatusTag('LIVE', 'success')}  ${pc.gray('live service workspace')}`,
+  );
   console.log(pc.gray('Observe the signal. Find the failure.'));
-  console.log(pc.bold('╰──────────────────────────────────────────╯\n'));
+  console.log(pc.cyan('╰──────────────────────────────────────────╯\n'));
 
   // 2. Instantiate our fixed-size 50k log repository ring buffer
 
@@ -84,9 +91,16 @@ export function handleStart(options = {}) {
     }
   };
   // 4. Fire up background processes concurrently
+  const servicesSummary = config.services
+    .map((service) =>
+      formatServiceBadge(service.name, service.color || 'neutral'),
+    )
+    .join('  ');
+
   console.log(
     pc.cyan(`  services   ${config.services.length} configured and starting`),
   );
+  console.log(`  runtime   ${servicesSummary}`);
   spawnServices(config.services, onIncomingLog);
 
   console.log(pc.green('\n  status     stream established'));
