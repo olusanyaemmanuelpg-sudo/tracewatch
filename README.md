@@ -8,20 +8,24 @@ TraceWatch helps developers quickly diagnose local application crashes by connec
 flowchart LR
   Service["Local Services"]
   Collector["Log Collector"]
-  Store["Event Store"]
+  Store[("Event Store")]
   Analyzer["Rule Engine"]
+  AI["AI Supervisor"]
   Dashboard["Web Dashboard"]
 
   Service -- "stdout / stderr" --> Collector
   Collector --> Store
   Store -- "Analyze traces" --> Analyzer
-  Analyzer --> Dashboard
+  Analyzer -- "Evaluate rules" --> Dashboard
+  Analyzer -- "Fallback" --> AI
+  AI -- "Intelligent diagnosis" --> Dashboard
   Store -- "Live feed" --> Dashboard
 
   style Service fill:#1e1b4b,stroke:#6366f1,stroke-width:2px,color:#fff
   style Collector fill:#2e1065,stroke:#8b5cf6,stroke-width:2px,color:#fff
   style Store fill:#4c0519,stroke:#ef4444,stroke-width:2px,color:#fff
   style Analyzer fill:#022c22,stroke:#10b981,stroke-width:2px,color:#fff
+  style AI fill:#451a03,stroke:#f59e0b,stroke-width:2px,color:#fff
   style Dashboard fill:#1e1b4b,stroke:#6366f1,stroke-width:2px,color:#fff
 ```
 
@@ -108,6 +112,7 @@ tracewatch export --out diagnosis.md
 - **Live Operations Dashboard**: Streams structured logs to a browser UI while highlighting critical errors and correlating cross-service events.
 - **Redacted Reporting**: Strips out credential strings, access tokens, and passwords before exporting diagnostic markdown reports.
 - **Root Cause Analysis**: Sweeps over trace timelines to match error signatures against known failures like exhausted connection pools or missing environment variables.
+- **AI Supervisor Fallback**: If local rules cannot identify the root cause, TraceWatch intelligently leverages the Gemini LLM to screen the logs and validate the issue.
 
 ```mermaid
 sequenceDiagram
@@ -115,12 +120,15 @@ sequenceDiagram
   participant CLI as "TraceWatch CLI"
   participant Store as "Event Store"
   participant Engine as "Rule Engine"
+  participant AI as "AI Supervisor"
 
   Developer->>CLI: Run tracewatch explain
   CLI->>Store: Read session logs
   Store->>CLI: Return log history
   CLI->>Engine: Correlate and evaluate traces
   Engine->>CLI: Return top diagnostic finding
+  CLI->>AI: Request AI fallback (if no local rule matches)
+  AI->>CLI: Return intelligent diagnosis
   CLI->>Developer: Print root cause and fix action
 ```
 
@@ -132,6 +140,7 @@ sequenceDiagram
 | Terminal Output | Picocolors                      |
 | Dashboard UI    | HTML5, CSS3, Vanilla JavaScript |
 | Data Storage    | JSON-Lines                      |
+| AI Engine       | Google Gemini API               |
 
 ## API Documentation
 
@@ -149,7 +158,6 @@ The endpoint returns a continuous text stream formatted as SSE.
 
 ```text
 data: {"id":"evt_123","timestamp":"2026-09-21T22:41:04.413Z","service":"api","level":"info","message":"validating payload","requestId":null}
-
 ```
 
 **Errors**:
@@ -158,7 +166,7 @@ data: {"id":"evt_123","timestamp":"2026-09-21T22:41:04.413Z","service":"api","le
 
 #### GET /api/explain
 
-**Description**: Triggers an immediate analysis over the current session buffer and returns the highest confidence root cause finding.
+**Description**: Triggers an immediate analysis over the current session buffer. Returns the highest confidence root cause finding using local deterministic rules. If no local rules trigger, it delegates to the AI Supervisor to return an intelligent fallback diagnosis.
 
 **Request**:
 No body required.
@@ -189,7 +197,7 @@ No body required.
 
 **Errors**:
 
-- 200: Returns `{"found": false}` if no rule violations are detected.
+- 200: Returns `{"found": false, "message": "No finding available."}` if no rule violations are detected and AI fallback fails.
 
 ## Contributing
 
