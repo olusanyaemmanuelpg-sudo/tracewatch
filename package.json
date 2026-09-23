@@ -1,6 +1,6 @@
 {
   "name": "@webdeji/tracewatch",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "type": "module",
   "description": "Don't show me the logs, show me what broke.",
   "main": "src/cli.js",
