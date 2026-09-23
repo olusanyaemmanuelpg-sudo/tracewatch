@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { correlateEvents } from './correlate.js';
 import { analyzeTraces } from './analyze.js';
+import { superviseWithAI } from './analyze-ai.js';
 
 /** @type {Set<http.ServerResponse>} */
 const connectedClients = new Set();
@@ -52,7 +53,17 @@ export function startDashboardServer(port, eventStore) {
       const findings = analyzeTraces(traces, currentLogs);
 
       if (findings.length === 0) {
-        res.end(JSON.stringify({ found: false }));
+        superviseWithAI(currentLogs, null)
+          .then((aiFinding) => {
+            if (aiFinding?.success) {
+              res.end(JSON.stringify({ found: true, finding: aiFinding }));
+              return;
+            }
+            res.end(JSON.stringify({ found: false, message: aiFinding?.message || 'No finding available.' }));
+          })
+          .catch(() => {
+            res.end(JSON.stringify({ found: false, message: 'AI diagnosis failed.' }));
+          });
         return;
       }
 

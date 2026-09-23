@@ -1,9 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 
 import { parseLogLine } from '../src/parsers/index.js';
-import { renderToConsole } from '../src/render.js';
+import { renderToConsole, formatEvidenceLine } from '../src/render.js';
 import { parseGeminiResponse } from '../src/analyze-ai.js';
+import { handleExplain } from '../src/commands/explain.js';
 
 test('parseLogLine prioritizes fatal and error levels over info', () => {
   assert.equal(parseLogLine('fatal: database connection lost').level, 'fatal');
@@ -31,7 +35,11 @@ test('parseGeminiResponse reads the actual Gemini payload format', () => {
     candidates: [
       {
         content: {
-          parts: [{ text: '{"cause":"DB pool exhausted","confidence":0.92,"rule":"pool-exhausted","evidence":["FATAL: sorry, too many clients already"],"fix":"Increase the pool max size."}' }],
+          parts: [
+            {
+              text: '{"cause":"DB pool exhausted","confidence":0.92,"rule":"pool-exhausted","evidence":["FATAL: sorry, too many clients already"],"fix":"Increase the pool max size."}',
+            },
+          ],
         },
       },
     ],
@@ -44,4 +52,48 @@ test('parseGeminiResponse reads the actual Gemini payload format', () => {
     evidence: ['FATAL: sorry, too many clients already'],
     fix: 'Increase the pool max size.',
   });
+});
+
+test('handleExplain can resolve a no-rule fallback with AI and no crash', async () => {
+  const originalCwd = process.cwd();
+  const originalKey = process.env.GEMINI_API_KEY;
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'tracewatch-'));
+  const sessionPath = path.join(tempDir, '.tracewatch-session.jsonl');
+
+  fs.writeFileSync(
+    sessionPath,
+    JSON.stringify({
+      id: 'evt_1',
+      timestamp: '2026-09-18T12:00:00.000Z',
+      service: 'api',
+      level: 'info',
+      message: 'boot completed',
+      requestId: null,
+    }) + '\n',
+  );
+
+  process.chdir(tempDir);
+  delete process.env.GEMINI_API_KEY;
+
+  try {
+    await assert.doesNotReject(async () => {
+      await handleExplain();
+    });
+  } finally {
+    process.chdir(originalCwd);
+    if (originalKey === undefined) {
+      delete process.env.GEMINI_API_KEY;
+    } else {
+      process.env.GEMINI_API_KEY = originalKey;
+    }
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+});
+
+test('formatEvidenceLine renders AI evidence strings without crashing', () => {
+  const text = '[09:42:00] [API] [ERROR] request failed';
+  const rendered = formatEvidenceLine(text);
+
+  assert.equal(typeof rendered, 'string');
+  assert.match(rendered, /request failed/);
 });

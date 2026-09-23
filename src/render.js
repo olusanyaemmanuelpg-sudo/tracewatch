@@ -58,6 +58,14 @@ export function formatLogEvent(event, serviceColor = 'white') {
  * @param {import('./types.js').LogEvent} event
  * @param {string} [serviceColor]
  */
+export function formatEvidenceLine(evidenceText, serviceColor = 'white') {
+  const safeText = String(evidenceText ?? '').trim();
+  if (!safeText) return pc.gray('No evidence available');
+
+  const colorizer = pc[serviceColor] || pc.white;
+  return colorizer(safeText);
+}
+
 export function renderToConsole(event, serviceColor) {
   console.log(formatLogEvent(event, serviceColor));
 }

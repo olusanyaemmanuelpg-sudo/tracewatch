@@ -3,14 +3,15 @@ import path from 'path';
 import pc from 'picocolors';
 import { correlateEvents } from '../correlate.js';
 import { analyzeTraces } from '../analyze.js';
-import { formatLogEvent } from '../render.js';
+import { superviseWithAI } from '../analyze-ai.js';
+import { formatLogEvent, formatEvidenceLine } from '../render.js';
 import { createSpinner } from '../cli-ui.js';
 
 /**
  * Handles execution of the `tracewatch explain` command sequence.
  */
 
-export function handleExplain() {
+export async function handleExplain() {
   const sessionPath = path.join(process.cwd(), '.tracewatch-session.jsonl');
 
   if (!fs.existsSync(sessionPath)) {
@@ -58,6 +59,27 @@ export function handleExplain() {
 
   // 4. Default structural layout screen if no rules successfully trigger matching signatures
   if (findings.length === 0) {
+    const aiFinding = await superviseWithAI(historicEvents, null);
+
+    if (aiFinding?.success) {
+      console.log(`\n${pc.bold(pc.red(aiFinding.cause))}`);
+      console.log(
+        pc.gray(
+          `${Math.round(aiFinding.confidence * 100)}% confidence · rule ${aiFinding.rule}\n`,
+        ),
+      );
+
+      console.log(pc.bold('evidence'));
+      aiFinding.evidence.forEach((ev) => {
+        const evidenceText =
+          typeof ev === 'string' ? ev : formatLogEvent(ev, 'white');
+        console.log(`  ${formatEvidenceLine(evidenceText, 'white')}`);
+      });
+
+      console.log(`\n${pc.bold(pc.cyan('next'))}  ${aiFinding.fix}\n`);
+      return;
+    }
+
     console.log(
       pc.yellow(
         '\n🔍 TraceWatch swept the log sequence but found no matching error rule signatures.',
@@ -68,6 +90,9 @@ export function handleExplain() {
         'Everything looks healthy, or the error profile is unrecognized.\n',
       ),
     );
+    if (aiFinding?.message) {
+      console.log(pc.gray(aiFinding.message));
+    }
     return;
   }
 
