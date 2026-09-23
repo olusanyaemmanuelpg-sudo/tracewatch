@@ -81,3 +81,7 @@ export function parseLogLine(rawline, serviceName) {
     requestId: inferredRequestId,
   };
 }
+
+export function userFrame(frames) {
+  return frames.find((frame) => !/(?:node_modules|internal\/|node:)/.test(frame)) || null;
+}

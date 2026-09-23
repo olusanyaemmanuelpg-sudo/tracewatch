@@ -15,6 +15,10 @@
  * @property {string|null} [requestId] - Extracted correlation identifier from incoming network headers
  */
 
+export function isFailure(event) {
+	return event.level === 'error' || event.level === 'fatal';
+}
+
 /**
  * @typedef {Object} Trace
  * @property {string} id - The matching correlation identifier or a computed time-cluster ID
