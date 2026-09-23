@@ -205,16 +205,43 @@ export function startDashboardServer(port, eventStore) {
     source.onmessage = (event) => { const log = JSON.parse(event.data); logs.push(log); services.add(log.service); updateMetrics(); renderLogs(); };
     source.onerror = () => { document.getElementById('status').innerHTML = '<span class="live-dot" style="background:#c84b45;box-shadow:0 0 0 4px #fbe9e7"></span> Stream disconnected'; };
 
+    function escapeHtml(value) {
+      return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/\"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    function renderEvidenceItem(entry) {
+      if (typeof entry === 'string') {
+        return '<div class="evidence-item"><div class="evidence-time">AI signal</div><div>' + escapeHtml(entry) + '</div></div>';
+      }
+
+      const ts = entry && entry.timestamp ? new Date(entry.timestamp).toLocaleTimeString() : 'unknown';
+      const service = entry && entry.service ? entry.service.toUpperCase() : 'SYSTEM';
+      const message = entry && entry.message ? entry.message : 'No message available';
+      return '<div class="evidence-item"><span class="evidence-time">' + escapeHtml(ts) + '</span> &nbsp; <strong>' + escapeHtml(service) + '</strong><br>' + escapeHtml(message) + '</div>';
+    }
+
     async function triggerWebExplain() {
       const container = document.getElementById('analysis-result');
       container.textContent = 'Analyzing current session...';
       try {
         const data = await (await fetch('/api/explain')).json();
-        if (!data.found) { container.textContent = 'No active rule violations found in the current session.'; return; }
+        if (!data.found) {
+          container.textContent = data.message || 'No active rule violations found in the current session.';
+          return;
+        }
         const f = data.finding;
-        let html = '<div class="finding-cause">' + f.cause + '</div><div class="finding-meta">' + Math.round(f.confidence * 100) + '% confidence · ' + f.rule + '</div><div class="evidence-title">Evidence</div><div class="evidence-box">';
-        f.evidence.forEach((e) => { html += '<div class="evidence-item"><span class="evidence-time">' + new Date(e.timestamp).toLocaleTimeString() + '</span> &nbsp; <strong>' + e.service.toUpperCase() + '</strong><br>' + e.message + '</div>'; });
-        html += '</div><div class="next-step"><strong>Recommended next step</strong><div>' + f.fix + '</div></div>';
+        const isAi = String(f.rule || '').startsWith('ai-');
+        const sourceTag = isAi ? '<span class="finding-meta">AI fallback · ' : '<span class="finding-meta">';
+        let html = '<div class="finding-cause">' + escapeHtml(f.cause || 'No root cause identified.') + '</div>' + sourceTag + Math.round((Number(f.confidence) || 0) * 100) + '% confidence · ' + escapeHtml(f.rule || 'analysis') + '</span><div class="evidence-title">Evidence</div><div class="evidence-box">';
+        (Array.isArray(f.evidence) ? f.evidence : []).forEach((entry) => {
+          html += renderEvidenceItem(entry);
+        });
+        html += '</div><div class="next-step"><strong>Recommended next step</strong><div>' + escapeHtml(f.fix || 'Review the incident logs and verify the failing service.') + '</div></div>';
         container.innerHTML = html;
       } catch (error) { container.textContent = 'The diagnostic endpoint is unavailable. Check the live stream connection.'; }
     }

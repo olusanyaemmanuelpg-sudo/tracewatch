@@ -6,6 +6,12 @@ export function formatStatusHeader(title, subtitle) {
   return `${titleText}  ${subtitleText}`;
 }
 
+export function formatIncidentSummary(cause, confidence, rule, source = 'rule') {
+  const level = source === 'ai' ? pc.magenta('AI') : pc.cyan('RULE');
+  const confidenceText = `${Math.round((Number(confidence) || 0) * 100)}% confidence`;
+  return `${pc.bold(pc.red(cause))}\n${pc.gray(`${confidenceText} · ${level} · ${rule}`)}`;
+}
+
 /**
  * Formats a single LogEvent object into a beautifully color-coded terminal string.
  * @param {import('./types.js').LogEvent} event

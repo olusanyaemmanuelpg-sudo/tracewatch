@@ -62,21 +62,19 @@ export async function handleExplain() {
     const aiFinding = await superviseWithAI(historicEvents, null);
 
     if (aiFinding?.success) {
-      console.log(`\n${pc.bold(pc.red(aiFinding.cause))}`);
+      console.log(`\n${pc.bold(pc.cyan('incident summary'))}`);
       console.log(
-        pc.gray(
-          `${Math.round(aiFinding.confidence * 100)}% confidence · rule ${aiFinding.rule}\n`,
-        ),
+        `${pc.bold(pc.red(aiFinding.cause))}\n${pc.gray(`${Math.round(aiFinding.confidence * 100)}% confidence · AI · ${aiFinding.rule}`)}`,
       );
 
-      console.log(pc.bold('evidence'));
+      console.log(pc.bold('\n' + pc.cyan('evidence')));
       aiFinding.evidence.forEach((ev) => {
         const evidenceText =
           typeof ev === 'string' ? ev : formatLogEvent(ev, 'white');
         console.log(`  ${formatEvidenceLine(evidenceText, 'white')}`);
       });
 
-      console.log(`\n${pc.bold(pc.cyan('next'))}  ${aiFinding.fix}\n`);
+      console.log(`\n${pc.bold(pc.cyan('next'))}\n${aiFinding.fix}\n`);
       return;
     }
 
@@ -100,18 +98,16 @@ export async function handleExplain() {
   const topFinding = findings[0];
 
   // 5. Output the signature structural visual blueprint layout exactly matching the specification guide
-  console.log(`\n${pc.bold(pc.red(topFinding.cause))}`);
+  console.log(`\n${pc.bold(pc.cyan('incident summary'))}`);
   console.log(
-    pc.gray(
-      `${Math.round(topFinding.confidence * 100)}% confidence · rule ${topFinding.rule}\n`,
-    ),
+    `${pc.bold(pc.red(topFinding.cause))}\n${pc.gray(`${Math.round(topFinding.confidence * 100)}% confidence · rule ${topFinding.rule}`)}`,
   );
 
-  console.log(pc.bold('evidence'));
+  console.log(pc.bold('\n' + pc.cyan('evidence')));
   topFinding.evidence.forEach((ev) => {
     // Render out structural log entries wrapped in light gray formatting indicators
     console.log(`  ${formatLogEvent(ev, 'white')}`);
   });
 
-  console.log(`\n${pc.bold(pc.cyan('next'))}  ${topFinding.fix}\n`);
+  console.log(`\n${pc.bold(pc.cyan('next'))}\n${topFinding.fix}\n`);
 }
