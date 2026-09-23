@@ -5,7 +5,7 @@ import { loadConfig } from '../config.js';
 import { spawnServices } from '../collector.js';
 import { EventStore } from '../store.js';
 import { parseLogLine } from '../parsers/index.js';
-import { renderToConsole } from '../render.js';
+import { renderToConsole, formatStatusHeader } from '../render.js';
 import { startDashboardServer, broadcastLog } from '../server.js';
 import { createSpinner } from '../cli-ui.js';
 
@@ -38,8 +38,10 @@ export function handleStart(options = {}) {
     return;
   }
 
-  console.log(pc.bold('\nTraceWatch  /  live service workspace'));
-  console.log(pc.gray('Observe the signal. Find the failure.\n'));
+  console.log(pc.bold('\n╭──────────────────────────────────────────╮'));
+  console.log(formatStatusHeader('TraceWatch', 'live service workspace'));
+  console.log(pc.gray('Observe the signal. Find the failure.'));
+  console.log(pc.bold('╰──────────────────────────────────────────╯\n'));
 
   // 2. Instantiate our fixed-size 50k log repository ring buffer
 
@@ -83,10 +85,10 @@ export function handleStart(options = {}) {
   };
   // 4. Fire up background processes concurrently
   console.log(
-    pc.cyan(`  SERVICES  ${config.services.length} configured and starting`),
+    pc.cyan(`  services   ${config.services.length} configured and starting`),
   );
   spawnServices(config.services, onIncomingLog);
 
-  console.log(pc.green('\n  STATUS    stream established'));
-  console.log(pc.gray('  Press Ctrl+C to stop the workspace safely.\n'));
+  console.log(pc.green('\n  status     stream established'));
+  console.log(pc.gray('  command   Ctrl+C to stop the workspace safely.\n'));
 }

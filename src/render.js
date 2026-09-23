@@ -1,5 +1,11 @@
 import pc from 'picocolors';
 
+export function formatStatusHeader(title, subtitle) {
+  const titleText = pc.bold(pc.cyan(title));
+  const subtitleText = pc.gray(subtitle);
+  return `${titleText}  ${subtitleText}`;
+}
+
 /**
  * Formats a single LogEvent object into a beautifully color-coded terminal string.
  * @param {import('./types.js').LogEvent} event
@@ -8,7 +14,6 @@ import pc from 'picocolors';
  */
 
 export function formatLogEvent(event, serviceColor = 'white') {
-  // Format a compact timestamp for high-volume terminal output.
   let timeString = '';
   try {
     const date = new Date(event.timestamp);
@@ -20,15 +25,16 @@ export function formatLogEvent(event, serviceColor = 'white') {
     timeString = '00:00:00.000';
   }
 
-  // Select the configured service color for a stable visual identity.
   const colorizer = pc[serviceColor] || pc.white;
-
-  const serviceBadge = colorizer(
-    pc.bold(event.service.padEnd(10).slice(0, 10)),
-  );
+  const serviceName = String(event.service || 'system')
+    .slice(0, 12)
+    .padEnd(12);
+  const serviceBadge = colorizer(pc.bold(serviceName));
   const grayTimestamp = pc.gray(timeString);
+  const levelLabel = String(event.level || 'info')
+    .toUpperCase()
+    .padEnd(5);
 
-  //Highlight lines that are flagged with high severity issues
   let messageText = event.message;
   if (event.level === 'fatal') {
     messageText = pc.bgRed(pc.white(pc.bold(` FATAL: ${event.message} `)));
@@ -36,21 +42,22 @@ export function formatLogEvent(event, serviceColor = 'white') {
     messageText = pc.red(event.message);
   } else if (event.level === 'warn') {
     messageText = pc.yellow(event.message);
+  } else {
+    messageText = pc.cyan(event.message);
   }
 
-  // Append context flags if an explicit correlation requestId tracking link is found
   const reqStr = event.requestId ? pc.gray(` [req:${event.requestId}]`) : '';
 
   const levelMarker =
     event.level === 'fatal'
       ? pc.red('!')
       : event.level === 'error'
-        ? pc.red('x')
+        ? pc.red('✕')
         : event.level === 'warn'
-          ? pc.yellow('~')
-          : pc.green('·');
+          ? pc.yellow('!')
+          : pc.green('•');
 
-  return `${levelMarker} ${grayTimestamp}  ${serviceBadge}  ${messageText}${reqStr}`;
+  return `${levelMarker} ${grayTimestamp}  ${serviceBadge}  ${pc.dim(levelLabel)}  ${messageText}${reqStr}`;
 }
 
 /**
