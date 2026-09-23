@@ -240,3 +240,128 @@ test('detectLocalStack discovers services inside monorepo apps folder', () => {
   }
 });
 
+test('extractPort accurately parses configured, env, command, and framework ports', async () => {
+  const { extractPort } = await import('../src/ports.js');
+
+  // Explicit port property
+  assert.equal(extractPort({ port: 4000 }), 4000);
+  assert.equal(extractPort({ port: '4000' }), 4000);
+
+  // Environment variable PORT
+  assert.equal(extractPort({ env: { PORT: '5001' } }), 5001);
+
+  // Command string containing PORT=
+  assert.equal(extractPort({ command: 'PORT=3005 nodemon index.js' }), 3005);
+
+  // Command string containing --port
+  assert.equal(extractPort({ command: 'vite --port 5174' }), 5174);
+  assert.equal(extractPort({ command: 'uvicorn main:app --port=8080' }), 8080);
+
+  // Framework inference
+  assert.equal(extractPort({ framework: 'Vite' }), 5173);
+  assert.equal(extractPort({ framework: 'Express' }), 3000);
+  assert.equal(extractPort({ framework: 'FastAPI' }), 8000);
+  assert.equal(extractPort({ framework: 'Flask' }), 5000);
+});
+
+test('extractPortFromError accurately identifies port conflict signatures', async () => {
+  const { extractPortFromError } = await import('../src/ports.js');
+
+  assert.equal(
+    extractPortFromError(
+      'Error: listen EADDRINUSE: address already in use 0.0.0.0:3000',
+    ),
+    3000,
+  );
+  assert.equal(
+    extractPortFromError(
+      'Error: listen EADDRINUSE: address already in use :::3000',
+    ),
+    3000,
+  );
+  assert.equal(
+    extractPortFromError('Port 5173 is in use, trying another one...'),
+    5173,
+  );
+  assert.equal(
+    extractPortFromError('port 8080 is already in use'),
+    8080,
+  );
+  assert.equal(
+    extractPortFromError('Random unrelated log message'),
+    null,
+  );
+});
+
+test('isPortInUse accurately identifies active and inactive ports', async () => {
+  const net = await import('node:net');
+  const { isPortInUse } = await import('../src/ports.js');
+
+  // Find a free port by listening on 0
+  const server = net.createServer();
+  await new Promise((resolve) => server.listen(0, resolve));
+  const assignedPort = server.address().port;
+
+  try {
+    // Should be in use while server is open
+    const inUse = await isPortInUse(assignedPort);
+    assert.equal(inUse, true);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+
+  // After closing, port should no longer be in use
+  const freed = await isPortInUse(assignedPort);
+  assert.equal(freed, false);
+});
+
+test('freePort terminates external processes holding a port', async () => {
+  const { spawn } = await import('node:child_process');
+  const readline = await import('node:readline');
+  const { isPortInUse, freePort, getPortPids } = await import(
+    '../src/ports.js'
+  );
+
+  // Spawn an external node process listening on an arbitrary available port
+  const child = spawn(
+    process.execPath,
+    [
+      '-e',
+      `
+      const http = require('http');
+      const server = http.createServer((req, res) => res.end('ok'));
+      server.listen(0, '127.0.0.1', () => {
+        console.log(server.address().port);
+      });
+      // Keep running
+      setInterval(() => {}, 1000);
+    `,
+    ],
+    { stdio: ['ignore', 'pipe', 'ignore'] },
+  );
+
+  const reader = readline.createInterface({ input: child.stdout });
+  const port = await new Promise((resolve) => {
+    reader.once('line', (line) => resolve(Number(line.trim())));
+  });
+
+  try {
+    assert.equal(await isPortInUse(port), true);
+    assert.ok(getPortPids(port).includes(child.pid));
+
+    // Call freePort to eliminate the child process
+    const killed = freePort(port);
+    assert.ok(killed.includes(child.pid));
+
+    // Verify process is no longer registered to the port
+    assert.equal(getPortPids(port).length, 0);
+  } finally {
+    try {
+      child.kill('SIGKILL');
+    } catch {}
+  }
+});
+
+
+
+

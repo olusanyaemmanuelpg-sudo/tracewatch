@@ -139,6 +139,20 @@ function detectNodeServices(cwd, relativePath = '.') {
       '@nestjs/core': 'NestJS',
     };
 
+    const frameworkPorts = {
+      'Next.js': 3000,
+      React: 3000,
+      'Vue.js': 5173,
+      Svelte: 5173,
+      Vite: 5173,
+      Angular: 4200,
+      Express: 3000,
+      Koa: 3000,
+      Hapi: 3000,
+      Fastify: 3000,
+      NestJS: 3000,
+    };
+
     const frontendFramework = Object.keys(frontendFrameworks).find(has);
 
     const backendFramework = Object.keys(backendFrameworks).find(has);
@@ -146,20 +160,24 @@ function detectNodeServices(cwd, relativePath = '.') {
     const workingDirectory = relativePath === '.' ? undefined : relativePath;
 
     if (frontendFramework) {
+      const frameworkName = frontendFrameworks[frontendFramework];
       services.push({
         name: relativePath === '.' ? 'frontend' : path.basename(relativePath),
         type: 'frontend',
-        framework: frontendFrameworks[frontendFramework],
+        framework: frameworkName,
+        port: frameworkPorts[frameworkName] || 3000,
         command,
         color: 'cyan',
         ...(workingDirectory ? { cwd: workingDirectory } : {}),
       });
     }
     if (backendFramework && !frontendFramework) {
+      const frameworkName = backendFrameworks[backendFramework];
       services.push({
         name: relativePath === '.' ? 'backend' : path.basename(relativePath),
         type: 'backend',
-        framework: backendFrameworks[backendFramework],
+        framework: frameworkName,
+        port: frameworkPorts[frameworkName] || 3000,
         command,
         color: 'magenta',
         ...(workingDirectory ? { cwd: workingDirectory } : {}),
@@ -200,6 +218,7 @@ function detectPythonServices(cwd, relativePath = '.') {
       name,
       type: 'backend',
       framework: 'FastAPI',
+      port: 8000,
       command: 'uvicorn main:app --reload',
       color: 'yellow',
       ...(workingDirectory ? { cwd: workingDirectory } : {}),
@@ -210,6 +229,7 @@ function detectPythonServices(cwd, relativePath = '.') {
       name,
       type: 'backend',
       framework: 'Flask',
+      port: 5000,
       command: 'python app.py',
       color: 'yellow',
       ...(workingDirectory ? { cwd: workingDirectory } : {}),
@@ -220,6 +240,7 @@ function detectPythonServices(cwd, relativePath = '.') {
       name,
       type: 'backend',
       framework: 'Django',
+      port: 8000,
       command: 'python manage.py runserver',
       color: 'yellow',
       ...(workingDirectory ? { cwd: workingDirectory } : {}),

@@ -10,13 +10,19 @@ import {
 } from '../render.js';
 import { startDashboardServer, broadcastLog } from '../server.js';
 import { createSpinner } from '../cli-ui.js';
+import {
+  isPortInUse,
+  getPortPids,
+  freePort,
+  extractPort,
+} from '../ports.js';
 
 /**
  * Handles execution of the `tracewatch start` command sequence.
  * @param {Object} options - Command line flags passed by the user
  */
 
-export function handleStart(options = {}) {
+export async function handleStart(options = {}) {
   let config;
   const configSpinner = createSpinner('Loading workspace configuration');
 
@@ -47,13 +53,87 @@ export function handleStart(options = {}) {
   console.log(pc.gray('Observe the signal. Find the failure.'));
   console.log(pc.cyan('╰──────────────────────────────────────────╯\n'));
 
-  // 2. Instantiate our fixed-size 50k log repository ring buffer
+  // By default, TraceWatch auto-frees conflicting ports so local services boot cleanly
+  // This can be disabled via --no-kill or by setting "killConflicts": false in tracewatch.json
+  const shouldKillConflicts =
+    options.noKill
+      ? false
+      : options.killConflicts || config.killConflicts !== false;
 
+  // 1. Filter services
+  const managedServices = config.services.filter(
+    (service) => service.managed !== false,
+  );
+  const attachedServices = config.services.filter(
+    (service) => service.managed === false,
+  );
+
+  // 2. Pre-flight port verification and automated resolution
+  for (const service of managedServices) {
+    const port = extractPort(service);
+    if (port) {
+      const occupied = await isPortInUse(port);
+      if (occupied) {
+        if (shouldKillConflicts) {
+          const freedPids = freePort(port);
+          const freedMsg =
+            freedPids.length > 0
+              ? `PID ${freedPids.join(', ')}`
+              : 'stale process';
+          console.log(
+            pc.yellow(
+              `  ⚡ freed     port ${port} (terminated ${freedMsg}) for [${service.name}]`,
+            ),
+          );
+        } else {
+          const pids = getPortPids(port);
+          const pidInfo = pids.length > 0 ? ` (PID ${pids.join(', ')})` : '';
+          console.log(
+            pc.yellow(
+              `  ⚠️  conflict  port ${port} is in use${pidInfo} [${service.name}]`,
+            ),
+          );
+          console.log(
+            pc.gray(
+              '             Pass "--kill-conflicts" (-k) to auto-free ports before start.',
+            ),
+          );
+        }
+      }
+    }
+  }
+
+  // 3. Instantiate our fixed-size 50k log repository ring buffer
   const store = new EventStore(50000);
 
-  // 3. Conditionally spin up the local HTTP web console if the --web flag is provided
+  // 4. Conditionally spin up the local HTTP web console if the --web flag is provided
   if (options.web) {
-    const targetPort = config.port || 9999;
+    let targetPort = config.port || 9999;
+    const webPortInUse = await isPortInUse(targetPort);
+
+    if (webPortInUse) {
+      if (shouldKillConflicts) {
+        const freed = freePort(targetPort);
+        console.log(
+          pc.yellow(
+            `  ⚡ freed     UI port ${targetPort} (stale PID: ${freed.join(', ') || 'orphaned'})`,
+          ),
+        );
+      } else {
+        // Find next open port
+        let nextPort = targetPort + 1;
+        while ((await isPortInUse(nextPort)) && nextPort < targetPort + 20) {
+          nextPort++;
+        }
+        console.log(
+          pc.yellow(
+            `  ℹ️  web UI    port ${targetPort} in use; rerouting to http://localhost:${nextPort}`,
+          ),
+        );
+        targetPort = nextPort;
+      }
+    }
+
     const dashboardServer = startDashboardServer(targetPort, store);
     dashboardServer.once('listening', () => {
       console.log(
@@ -64,7 +144,7 @@ export function handleStart(options = {}) {
     });
   }
 
-  // 3. Setup our processing gateway to run when a service speaks
+  // 5. Setup our processing gateway to run when a service speaks
   const onIncomingLog = (rawLog) => {
     // rawLog contains: { service, stream, text, color }
 
@@ -81,19 +161,13 @@ export function handleStart(options = {}) {
       broadcastLog(savedEvent);
     }
   };
-  // 4. Fire up background processes concurrently
+
+  // 6. Fire up background processes concurrently
   const servicesSummary = config.services
     .map((service) =>
       formatServiceBadge(service.name, service.color || 'neutral'),
     )
     .join('  ');
-
-  const managedServices = config.services.filter(
-    (service) => service.managed !== false,
-  );
-  const attachedServices = config.services.filter(
-    (service) => service.managed === false,
-  );
 
   console.log(
     pc.cyan(`  services   ${managedServices.length} configured and starting`),

@@ -26,10 +26,12 @@ COMMANDS
   export     Write a redacted diagnostic report to Markdown
 
 FLAGS
-  --web          Launch the live operations dashboard with start
-  --out <file>   Specify output file for export (default: report.md)
-  --no-redact    Disable credential redaction during export
-  --help, -h     Show this command reference
+  --web                  Launch the live operations dashboard with start
+  --no-kill              Disable automatic termination of conflicting port processes
+  --kill-conflicts, -k   Explicitly enable auto-termination of conflicting port processes
+  --out <file>           Specify output file for export (default: report.md)
+  --no-redact            Disable credential redaction during export
+  --help, -h             Show this command reference
 `;
 
 // 3. Handle help flag or missing parameters
@@ -49,8 +51,10 @@ switch (command) {
 
   case 'start':
     const useWeb = flags.includes('--web');
-    // Pass along flags array mapped into simple config parameters if needed
-    handleStart({ web: useWeb });
+    const noKill = flags.includes('--no-kill');
+    const killConflicts =
+      flags.includes('--kill-conflicts') || flags.includes('-k');
+    await handleStart({ web: useWeb, noKill, killConflicts });
     break;
 
   case 'explain':
