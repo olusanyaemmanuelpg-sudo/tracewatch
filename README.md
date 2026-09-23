@@ -10,30 +10,9 @@ TraceWatch helps developers quickly diagnose local application crashes by connec
 
 ## System Architecture
 
-```mermaid
-flowchart LR
-  Service["Local Services"]
-  Collector["Log Collector"]
-  Store[("Event Store")]
-  Analyzer["Rule Engine"]
-  AI["AI Supervisor"]
-  Dashboard["Web Dashboard"]
-
-  Service -- "stdout / stderr" --> Collector
-  Collector --> Store
-  Store -- "Analyze traces" --> Analyzer
-  Analyzer -- "Evaluate rules" --> Dashboard
-  Analyzer -- "Fallback" --> AI
-  AI -- "Intelligent diagnosis" --> Dashboard
-  Store -- "Live feed" --> Dashboard
-
-  style Service fill:#1e1b4b,stroke:#6366f1,stroke-width:2px,color:#fff
-  style Collector fill:#2e1065,stroke:#8b5cf6,stroke-width:2px,color:#fff
-  style Store fill:#4c0519,stroke:#ef4444,stroke-width:2px,color:#fff
-  style Analyzer fill:#022c22,stroke:#10b981,stroke-width:2px,color:#fff
-  style AI fill:#451a03,stroke:#f59e0b,stroke-width:2px,color:#fff
-  style Dashboard fill:#1e1b4b,stroke:#6366f1,stroke-width:2px,color:#fff
-```
+<p align="center">
+  <img src="docs/diagram.png" alt="TraceWatch system architecture" width="100%" />
+</p>
 
 ## Installation
 
