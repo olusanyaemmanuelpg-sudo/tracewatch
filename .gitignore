@@ -1,6 +1,3 @@
 node_modules/
 .DS_Store
 *.log
-tracewatch.json
-app.js
-.tracewatch-session.jsonl
