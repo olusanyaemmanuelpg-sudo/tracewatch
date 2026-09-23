@@ -6,7 +6,7 @@
 
 export function stripAnsi(text) {
   // Regular expression to catch color and text-formatting codes completely
-  return text.replace(
+  return String(text ?? '').replace(
     /[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g,
     '',
   );
@@ -21,32 +21,50 @@ export function stripAnsi(text) {
 
 export function parseLogLine(rawline, serviceName) {
   const cleanLine = stripAnsi(rawline);
+  const trimmedLine = cleanLine.trim();
   const timestamp = new Date().toISOString();
 
   // 1. STRATEGY A: Attempt JSON parsing first (High-utility modern app pattern)
-  if (cleanLine.startsWith('{') && cleanLine.endsWith('}')) {
+  if (trimmedLine.startsWith('{') && trimmedLine.endsWith('}')) {
     try {
-      const jsonData = JSON.parse(cleanLine);
+      const jsonData = JSON.parse(trimmedLine);
 
-      //Map common structural JSON logging keys dynamically
+      // Map common structural JSON logging keys dynamically
       const message =
         jsonData.msg || jsonData.message || jsonData.text || cleanLine;
-      const level = String(
-        jsonData.level || jsonData.status || 'info',
-      ).toLowerCase();
+
+      let level = 'info';
+      if (typeof jsonData.level === 'number') {
+        if (jsonData.level >= 60) level = 'fatal';
+        else if (jsonData.level >= 50) level = 'error';
+        else if (jsonData.level >= 40) level = 'warn';
+        else level = 'info';
+      } else if (typeof jsonData.status === 'number') {
+        if (jsonData.status >= 500) level = 'error';
+        else if (jsonData.status >= 400) level = 'warn';
+        else level = 'info';
+      } else {
+        const strLevel = String(
+          jsonData.level || jsonData.status || 'info',
+        ).toLowerCase();
+        level = ['info', 'warn', 'error', 'fatal'].includes(strLevel)
+          ? strLevel
+          : 'info';
+      }
+
       const requestId =
         jsonData.request_id ||
         jsonData.requestId ||
         jsonData.trace_id ||
         jsonData.traceId ||
+        jsonData.req_id ||
+        jsonData.reqId ||
         null;
 
       return {
         timestamp: jsonData.timestamp || jsonData.time || timestamp,
         service: serviceName,
-        level: ['info', 'warn', 'error', 'fatal'].includes(level)
-          ? level
-          : 'info',
+        level,
         message:
           typeof message === 'object'
             ? JSON.stringify(message)
@@ -61,7 +79,7 @@ export function parseLogLine(rawline, serviceName) {
   // Look for implicit request/correlation indicators embedded inside general text sentences
   let inferredRequestId = null;
   const requestMatch = cleanLine.match(
-    /(?:request_id|requestId|req_id|traceId)[\s:=]+([a-zA-Z0-9_-]+)/i,
+    /(?:request[-_]?id|req[-_]?id|trace[-_]?id|req)[\s:=]+([a-zA-Z0-9_-]+)/i,
   );
   if (requestMatch && requestMatch[1]) {
     inferredRequestId = requestMatch[1];
@@ -83,5 +101,13 @@ export function parseLogLine(rawline, serviceName) {
 }
 
 export function userFrame(frames) {
-  return frames.find((frame) => !/(?:node_modules|internal\/|node:)/.test(frame)) || null;
+  if (!Array.isArray(frames)) return null;
+  return (
+    frames.find(
+      (frame) =>
+        typeof frame === 'string' &&
+        frame.trim() &&
+        !/(?:node_modules|internal\/|node:)/.test(frame),
+    ) || null
+  );
 }

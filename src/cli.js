@@ -1,4 +1,3 @@
-import { fileURLToPath } from 'url';
 import { handleInit } from './commands/init.js';
 import { handleStart } from './commands/start.js';
 import { handleExplain } from './commands/explain.js';
@@ -27,8 +26,10 @@ COMMANDS
   export     Write a redacted diagnostic report to Markdown
 
 FLAGS
-  --web      Launch the live operations dashboard with start
-  --help     Show this command reference
+  --web          Launch the live operations dashboard with start
+  --out <file>   Specify output file for export (default: report.md)
+  --no-redact    Disable credential redaction during export
+  --help, -h     Show this command reference
 `;
 
 // 3. Handle help flag or missing parameters
@@ -49,23 +50,27 @@ switch (command) {
   case 'start':
     const useWeb = flags.includes('--web');
     // Pass along flags array mapped into simple config parameters if needed
-    handleStart({ web: useWeb }); // <-- CHANGE THIS LINE
+    handleStart({ web: useWeb });
     break;
 
   case 'explain':
-    handleExplain();
+    await handleExplain();
     break;
 
   case 'export':
     // Parse flag modifiers if user overrides out file configurations
-    const outFlagIndex = flags.indexOf('--out');
+    const outFlagIndex = rawArgs.indexOf('--out');
     let customFile = 'report.md';
-    if (outFlagIndex !== -1 && flags[outFlagIndex + 1]) {
-      customFile = flags[outFlagIndex + 1];
+    if (
+      outFlagIndex !== -1 &&
+      rawArgs[outFlagIndex + 1] &&
+      !rawArgs[outFlagIndex + 1].startsWith('-')
+    ) {
+      customFile = rawArgs[outFlagIndex + 1];
     }
     const noRedact = flags.includes('--no-redact');
 
-    handleExport({ out: customFile, redact: !noRedact }); // <-- CHANGE THIS LINE
+    handleExport({ out: customFile, redact: !noRedact });
     break;
 
   default:

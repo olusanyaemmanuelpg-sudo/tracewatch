@@ -1,5 +1,3 @@
-import fs from 'fs';
-import path from 'path';
 import https from 'https';
 
 export function parseGeminiResponse(responsePayload) {
@@ -44,8 +42,17 @@ export function superviseWithAI(logWindow, localFinding) {
 
     const formattedTimeline = logWindow
       .map((log) => {
-        const time = new Date(log.timestamp).toLocaleTimeString();
-        return `[${time}] [${log.service.toUpperCase()}] [${log.level.toUpperCase()}] ${log.message}`;
+        let time = '00:00:00';
+        try {
+          const d = new Date(log.timestamp);
+          if (!isNaN(d.getTime())) time = d.toLocaleTimeString();
+          else if (log.timestamp) time = String(log.timestamp);
+        } catch {
+          time = '00:00:00';
+        }
+        const sName = String(log.service || 'service').toUpperCase();
+        const sLevel = String(log.level || 'info').toUpperCase();
+        return `[${time}] [${sName}] [${sLevel}] ${log.message}`;
       })
       .join('\n');
 
@@ -116,7 +123,7 @@ export function superviseWithAI(logWindow, localFinding) {
     };
 
     const req = https.request(requestOptions, (res) => {
-      let responseBody = ' ';
+      let responseBody = '';
       res.on('data', (chunk) => (responseBody += chunk));
 
       res.on('end', () => {

@@ -123,11 +123,16 @@ const upstreamTimeout = {
     );
     if (!hit) return null;
     const slow = trace.events.filter((e) => (e.durationMs ?? 0) > 1000);
+    const evidence = [];
+    if (slow.length && slow[slow.length - 1] !== hit) {
+      evidence.push(slow[slow.length - 1]);
+    }
+    evidence.push(hit);
     return {
       rule: this.id,
       cause: `${hit.service} gave up waiting on a slower dependency.`,
       confidence: slow.length ? 0.8 : 0.6,
-      evidence: slow.length ? [slow[slow.length - 1], hit] : [hit],
+      evidence,
       fix: 'The dependency is slow, not down. Look at what it was doing during the window before raising the timeout.',
     };
   },
@@ -170,7 +175,7 @@ const authExpired = {
         : `${unauthorized.length} requests were rejected as unauthorized in this window.`,
       confidence: expiry ? 0.88 : 0.55,
       evidence: expiry
-        ? [expiry, ...unauthorized.slice(0, 2)]
+        ? [expiry, ...unauthorized.filter((e) => e !== expiry).slice(0, 2)]
         : unauthorized.slice(0, 3),
       fix: 'Refresh the token rather than debugging the auth middleware.',
     };
@@ -207,7 +212,13 @@ const undefinedAccess = {
     const index = trace.events.indexOf(hit);
     const frames = trace.events
       .slice(index, index + 12)
-      .flatMap((e) => e.stack || []);
+      .flatMap((e) =>
+        Array.isArray(e.stack)
+          ? e.stack
+          : typeof e.stack === 'string'
+            ? e.stack.split('\n')
+            : [],
+      );
     const frame = userFrame(frames);
     const prop = /(?:property|properties) '([^']+)'/i.exec(hit.message);
     return {
@@ -227,10 +238,10 @@ const fallback = {
   run(trace) {
     const failures = trace.events.filter(isFailure);
     if (failures.length === 0) return null;
-    const worst = failures[failures.length - 1];
+    const firstFailure = failures[0];
     return {
       rule: this.id,
-      cause: `No rule matched. The first failure in this window came from ${worst.service}.`,
+      cause: `No rule matched. The first failure in this window came from ${firstFailure.service}.`,
       confidence: 0.3,
       evidence: failures.slice(0, 3),
       fix: 'Run with --verbose to see the full window, or open an issue with the exported report.',

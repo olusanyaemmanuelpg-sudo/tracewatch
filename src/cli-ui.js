@@ -1,5 +1,4 @@
 const frames = ['|', '/', '-', '\\'];
-const MINIMUM_SPINNER_DURATION_MS = 500;
 
 /**
  * Starts a terminal spinner and returns a function that stops it cleanly.
@@ -18,7 +17,6 @@ export function createSpinner(label) {
 
   let frameIndex = 0;
   let stopped = false;
-  const startedAt = Date.now();
   const render = () => {
     process.stdout.write(`\r${frames[frameIndex]} ${label}`);
     frameIndex = (frameIndex + 1) % frames.length;
@@ -30,21 +28,10 @@ export function createSpinner(label) {
   return {
     stop(message = '') {
       if (stopped) return;
-
-      const finish = () => {
-        if (stopped) return;
-        stopped = true;
-        clearInterval(timer);
-        process.stdout.write('\r\x1b[2K');
-        if (message) process.stdout.write(`${message}\n`);
-      };
-
-      const remaining = MINIMUM_SPINNER_DURATION_MS - (Date.now() - startedAt);
-      if (remaining > 0) {
-        setTimeout(finish, remaining);
-      } else {
-        finish();
-      }
+      stopped = true;
+      clearInterval(timer);
+      process.stdout.write('\r\x1b[2K');
+      if (message) process.stdout.write(`${message}\n`);
     },
   };
 }

@@ -8,21 +8,68 @@ import path from 'path';
 export function detectLocalStack() {
   const cwd = process.cwd();
   const services = [];
-  const projectDirs = [
-    { directory: cwd, relativePath: '.' },
-    ...fs
-      .readdirSync(cwd, { withFileTypes: true })
-      .filter(
-        (entry) =>
-          entry.isDirectory() &&
-          !entry.name.startsWith('.') &&
-          entry.name !== 'node_modules',
-      )
-      .map((entry) => ({
-        directory: path.join(cwd, entry.name),
-        relativePath: entry.name,
-      })),
-  ];
+  const scannedDirs = new Set();
+  const projectDirs = [{ directory: cwd, relativePath: '.' }];
+  scannedDirs.add(cwd);
+
+  const ignoredDirs = new Set([
+    'node_modules',
+    '.git',
+    '.github',
+    'dist',
+    'build',
+    '.next',
+    'out',
+    'coverage',
+    'fixtures',
+    'docs',
+    'bin',
+    'test',
+  ]);
+
+  try {
+    const entries = fs.readdirSync(cwd, { withFileTypes: true });
+    for (const entry of entries) {
+      if (
+        !entry.isDirectory() ||
+        entry.name.startsWith('.') ||
+        ignoredDirs.has(entry.name)
+      ) {
+        continue;
+      }
+
+      const fullPath = path.join(cwd, entry.name);
+      scannedDirs.add(fullPath);
+      projectDirs.push({ directory: fullPath, relativePath: entry.name });
+
+      // Monorepo container support: inspect children of apps/, services/, packages/, modules/
+      if (['apps', 'services', 'packages', 'modules'].includes(entry.name)) {
+        try {
+          const subEntries = fs.readdirSync(fullPath, { withFileTypes: true });
+          for (const sub of subEntries) {
+            if (
+              sub.isDirectory() &&
+              !sub.name.startsWith('.') &&
+              !ignoredDirs.has(sub.name)
+            ) {
+              const subFullPath = path.join(fullPath, sub.name);
+              if (!scannedDirs.has(subFullPath)) {
+                scannedDirs.add(subFullPath);
+                projectDirs.push({
+                  directory: subFullPath,
+                  relativePath: path.join(entry.name, sub.name),
+                });
+              }
+            }
+          }
+        } catch {
+          // Skip unreadable subdirectories
+        }
+      }
+    }
+  } catch (err) {
+    // Skip unreadable directories
+  }
 
   for (const project of projectDirs) {
     services.push(
@@ -38,7 +85,14 @@ export function detectLocalStack() {
       command: 'echo "No supported framework detected"',
       color: 'blue',
     });
+  } else {
+    // Assign distinct, contrasting colors from palette
+    const PALETTE = ['cyan', 'magenta', 'yellow', 'blue', 'green'];
+    services.forEach((service, index) => {
+      service.color = PALETTE[index % PALETTE.length];
+    });
   }
+
   return services;
 }
 

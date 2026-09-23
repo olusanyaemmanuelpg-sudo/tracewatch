@@ -57,8 +57,11 @@ export async function handleExplain() {
   const findings = analyzeTraces(correlatedTraces, historicEvents);
   spinner.stop('✅ Session analysis complete');
 
-  // 4. Default structural layout screen if no rules successfully trigger matching signatures
-  if (findings.length === 0) {
+  // 4. If no specific deterministic rules matched (or only fallback rule matched), invoke AI supervisor
+  const isNoSpecificRule =
+    findings.length === 0 || findings[0].rule === 'fallback';
+
+  if (isNoSpecificRule) {
     const aiFinding = await superviseWithAI(historicEvents, null);
 
     if (aiFinding?.success) {
@@ -75,6 +78,25 @@ export async function handleExplain() {
       });
 
       console.log(`\n${pc.bold(pc.cyan('next'))}\n${aiFinding.fix}\n`);
+      return;
+    }
+
+    if (findings.length > 0 && findings[0].rule === 'fallback') {
+      const topFinding = findings[0];
+      console.log(`\n${pc.bold(pc.cyan('incident summary'))}`);
+      console.log(
+        `${pc.bold(pc.red(topFinding.cause))}\n${pc.gray(`${Math.round(topFinding.confidence * 100)}% confidence · rule ${topFinding.rule}`)}`,
+      );
+
+      console.log(pc.bold('\n' + pc.cyan('evidence')));
+      topFinding.evidence.forEach((ev) => {
+        console.log(`  ${formatLogEvent(ev, 'white')}`);
+      });
+
+      console.log(`\n${pc.bold(pc.cyan('next'))}\n${topFinding.fix}\n`);
+      if (aiFinding?.message) {
+        console.log(pc.gray(aiFinding.message));
+      }
       return;
     }
 

@@ -45,45 +45,44 @@ export function correlateEvents(events) {
   // Sort loose events chronologically to find consecutive runs easily
   looseEvents.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 
-  /** @type {import('./types.js').LogEvent[]} */
-  let currentCluster = [];
-  let clusterIndex = 1;
-  looseEvents.forEach((event, idx) => {
-    if (currentCluster.length === 0) {
-      currentCluster.push(event);
-      return;
-    }
-    const previousEvent = currentCluster[currentCluster.length - 1];
-    const timeDiff =
-      new Date(event.timestamp) - new Date(previousEvent.timestamp);
+  if (looseEvents.length > 0) {
+    let currentCluster = [looseEvents[0]];
+    let clusterIndex = 1;
 
-    if (timeDiff <= TIME_GAP_CEILING_MS) {
-      currentCluster.push(event);
-    } else {
-      // Close the current time-cluster trace and save it
+    for (let i = 1; i < looseEvents.length; i++) {
+      const event = looseEvents[i];
+      const previousEvent = currentCluster[currentCluster.length - 1];
+      const timeDiff =
+        new Date(event.timestamp).getTime() -
+        new Date(previousEvent.timestamp).getTime();
+
+      if (timeDiff <= TIME_GAP_CEILING_MS) {
+        currentCluster.push(event);
+      } else {
+        traces.push({
+          id: `cluster_${Date.now().toString().slice(-4)}_${clusterIndex++}`,
+          explicit: false,
+          events: currentCluster,
+        });
+        currentCluster = [event];
+      }
+    }
+
+    if (currentCluster.length > 0) {
       traces.push({
         id: `cluster_${Date.now().toString().slice(-4)}_${clusterIndex++}`,
         explicit: false,
         events: currentCluster,
       });
-      // Start a brand new cluster chain
-      currentCluster = [event];
     }
-
-    // Edge-case catch for the very last remaining item in the loop array
-    if (idx === looseEvents.length - 1 && currentCluster.length > 0) {
-      traces.push({
-        id: `cluster_${Date.now().toString().slice(-4)}_${clusterIndex++}`,
-        explicit: false,
-        events: currentCluster,
-      });
-    }
-  });
+  }
 
   // Return the entire trace timeline sorted with the freshest activity sitting at the top
   return traces.sort((a, b) => {
-    const aTime = new Date(a.events[a.events.length - 1].timestamp);
-    const bTime = new Date(b.events[b.events.length - 1].timestamp);
+    const aLast = a.events?.[a.events.length - 1];
+    const bLast = b.events?.[b.events.length - 1];
+    const aTime = aLast ? new Date(aLast.timestamp).getTime() : 0;
+    const bTime = bLast ? new Date(bLast.timestamp).getTime() : 0;
     return bTime - aTime;
   });
 }

@@ -11,22 +11,23 @@ import { createSpinner } from '../cli-ui.js';
  * @returns {string} Sanitized string data
  */
 export function redactSecrets(text) {
+  if (typeof text !== 'string') return String(text ?? '');
   return (
     text
       // Redact authorization token headers (Bearer tokens, basic credentials)
       .replace(
         /(auth|authorization|bearer|token|jwt)[:=\s"']+[a-zA-Z0-9_\-\.\=\+]{10,}/gi,
-        '\$1: [REDACTED]',
+        '$1: [REDACTED]',
       )
       // Redact raw text password fields or environment credentials
       .replace(
         /(pass|password|pwd|secret|key)[:=\s"']+[a-zA-Z0-9_\-\.\!\@\#\$\%\^\&\*]{4,}/gi,
-        '\$1: [REDACTED]',
+        '$1: [REDACTED]',
       )
       // Redact private database connection URL strings containing passwords
       .replace(
         /(mongodb\+srv:\/\/|postgres:\/\/|mysql:\/\/)[^:]+:[^@]+@/gi,
-        '\$1[USER]:[PASSWORD]@',
+        '$1[USER]:[PASSWORD]@',
       )
   );
 }
@@ -100,11 +101,18 @@ export function handleExport(options = {}) {
       message = redactSecrets(message);
     }
 
-    const time = new Date(event.timestamp)
-      .toISOString()
-      .split('T')[1]
-      .slice(0, -1);
-    const badge = event.service.padEnd(8).toUpperCase();
+    let time = '00:00:00.000';
+    try {
+      const d = new Date(event.timestamp);
+      if (!isNaN(d.getTime())) {
+        time = d.toISOString().split('T')[1].slice(0, -1);
+      } else if (event.timestamp) {
+        time = String(event.timestamp);
+      }
+    } catch {
+      time = String(event.timestamp || '00:00:00.000');
+    }
+    const badge = String(event.service || 'unknown').padEnd(8).toUpperCase();
     md += `${time} | ${badge} | ${message}${event.requestId ? ` [req:${event.requestId}]` : ''}\n`;
   });
 

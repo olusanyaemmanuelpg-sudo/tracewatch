@@ -1,5 +1,3 @@
-import fs from 'fs';
-import path from 'path';
 import pc from 'picocolors';
 import { loadConfig } from '../config.js';
 import { spawnServices } from '../collector.js';
@@ -7,7 +5,6 @@ import { EventStore } from '../store.js';
 import { parseLogLine } from '../parsers/index.js';
 import {
   renderToConsole,
-  formatStatusHeader,
   formatStatusTag,
   formatServiceBadge,
 } from '../render.js';
@@ -66,12 +63,6 @@ export function handleStart(options = {}) {
       );
     });
   }
-
-  // Define an active tracking map to look up service colors quickly
-  const serviceColorMap = new Map();
-  config.services.forEach((service) => {
-    serviceColorMap.set(service.name, service.color);
-  });
 
   // 3. Setup our processing gateway to run when a service speaks
   const onIncomingLog = (rawLog) => {

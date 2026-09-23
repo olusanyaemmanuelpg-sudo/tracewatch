@@ -1,5 +1,6 @@
 import { spawn } from 'child_process';
 import readline from 'readline';
+import path from 'path';
 import pc from 'picocolors';
 
 function isPortConflict(line) {
@@ -17,22 +18,26 @@ function isPortConflict(line) {
 
 export function spawnServices(services, onLogEvent) {
   const activeProcesses = [];
+  let isShuttingDown = false;
 
   services.forEach((service) => {
-    const [cmd, ...arg] = service.command.split(' ');
-    let portConflict = false;
+    if (!service || !service.command) return;
 
-    // Spawn the service inside a system shell to support cross-platform path resolution
-    const childProcess = spawn(cmd, arg, {
+    let portConflict = false;
+    const workingDir = service.cwd
+      ? path.resolve(process.cwd(), service.cwd)
+      : process.cwd();
+
+    // Spawn the service inside a system shell to support cross-platform path resolution and pipelines
+    const childProcess = spawn(service.command, {
       shell: true,
-      cwd: service.cwd || process.cwd(),
+      cwd: workingDir,
       env: { ...process.env, FORCE_COLOR: '1' },
     });
 
     activeProcesses.push({ service, process: childProcess });
 
-    //Wrap standard output stream with readline for precise line-by-line streaming
-
+    // Wrap standard output stream with readline for precise line-by-line streaming
     if (childProcess.stdout) {
       const stdoutReader = readline.createInterface({
         input: childProcess.stdout,
@@ -40,7 +45,6 @@ export function spawnServices(services, onLogEvent) {
       stdoutReader.on('line', (line) => {
         if (isPortConflict(line)) {
           portConflict = true;
-          return;
         }
         onLogEvent({
           service: service.name,
@@ -59,19 +63,20 @@ export function spawnServices(services, onLogEvent) {
       stderrReader.on('line', (line) => {
         if (isPortConflict(line)) {
           portConflict = true;
-          return;
         }
         onLogEvent({
           service: service.name,
           stream: 'stderr',
           text: line,
-          color: pc.red,
+          color: 'red',
         });
       });
     }
 
-    //Handle sudden internal process craches or standard exit behaviours
+    // Handle sudden internal process crashes or standard exit behaviours
     childProcess.on('close', (code) => {
+      if (isShuttingDown) return;
+
       if (code !== 0 && code !== null) {
         if (portConflict) {
           console.log(
@@ -93,23 +98,25 @@ export function spawnServices(services, onLogEvent) {
         }
       }
     });
-
-    // Implement graceful shutdown on SIGINT (Ctrl+C) to terminate all child processes on exit
-    const cleanup = () => {
-      activeProcesses.forEach(({ process: p }) => {
-        if (!p.killed) {
-          try {
-            p.kill('SIGINT');
-          } catch (err) {
-            //process already terminated safely, ignore the error
-          }
-        }
-      });
-      process.exit(0);
-    };
-    process.on('SIGINT', cleanup);
-    process.on('SIGTERM', cleanup);
   });
+
+  // Implement graceful shutdown on SIGINT (Ctrl+C) to terminate all child processes on exit
+  const cleanup = () => {
+    isShuttingDown = true;
+    activeProcesses.forEach(({ process: p }) => {
+      if (!p.killed) {
+        try {
+          p.kill('SIGINT');
+        } catch (err) {
+          // process already terminated safely, ignore the error
+        }
+      }
+    });
+    process.exit(0);
+  };
+
+  process.once('SIGINT', cleanup);
+  process.once('SIGTERM', cleanup);
 
   return activeProcesses;
 }

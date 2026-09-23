@@ -135,3 +135,108 @@ test('detectLocalStack discovers services in frontend and backend folders', () =
     fs.rmSync(tempDir, { recursive: true, force: true });
   }
 });
+
+test('correlateEvents preserves a single loose event without dropping it', async () => {
+  const { correlateEvents } = await import('../src/correlate.js');
+  const event = {
+    id: 'evt_1',
+    timestamp: '2026-09-23T12:00:00.000Z',
+    service: 'api',
+    level: 'error',
+    message: 'Unhandled server error',
+    requestId: null,
+  };
+
+  const traces = correlateEvents([event]);
+  assert.equal(traces.length, 1);
+  assert.equal(traces[0].events.length, 1);
+  assert.equal(traces[0].events[0].id, 'evt_1');
+});
+
+test('correlateEvents clusters loose events occurring within time gap', async () => {
+  const { correlateEvents } = await import('../src/correlate.js');
+  const events = [
+    {
+      id: 'evt_1',
+      timestamp: '2026-09-23T12:00:00.000Z',
+      service: 'web',
+      level: 'info',
+      message: 'outgoing request',
+      requestId: null,
+    },
+    {
+      id: 'evt_2',
+      timestamp: '2026-09-23T12:00:00.500Z',
+      service: 'api',
+      level: 'error',
+      message: 'connection failed',
+      requestId: null,
+    },
+    {
+      id: 'evt_3',
+      timestamp: '2026-09-23T12:00:05.000Z',
+      service: 'web',
+      level: 'info',
+      message: 'subsequent action',
+      requestId: null,
+    },
+  ];
+
+  const traces = correlateEvents(events);
+  assert.equal(traces.length, 2);
+});
+
+test('redactSecrets sanitizes tokens, passwords, and database URIs', async () => {
+  const { redactSecrets } = await import('../src/commands/export.js');
+  const raw =
+    'Authorization: Bearer secret_jwt_token_123456; password=mySuperSecret123; connect to postgres://admin:super_secret@localhost:5432/app_db';
+  const sanitized = redactSecrets(raw);
+
+  assert.doesNotMatch(sanitized, /secret_jwt_token_123456/);
+  assert.doesNotMatch(sanitized, /mySuperSecret123/);
+  assert.doesNotMatch(sanitized, /super_secret/);
+  assert.match(sanitized, /\[REDACTED\]/);
+  assert.match(sanitized, /\[USER\]:\[PASSWORD\]/);
+});
+
+test('detectLocalStack discovers services inside monorepo apps folder', () => {
+  const originalCwd = process.cwd();
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'tracewatch-mono-'));
+
+  fs.mkdirSync(path.join(tempDir, 'apps', 'web'), { recursive: true });
+  fs.mkdirSync(path.join(tempDir, 'apps', 'api'), { recursive: true });
+
+  fs.writeFileSync(
+    path.join(tempDir, 'apps', 'web', 'package.json'),
+    JSON.stringify({
+      scripts: { dev: 'next dev' },
+      dependencies: { next: '^14.0.0' },
+    }),
+  );
+  fs.writeFileSync(
+    path.join(tempDir, 'apps', 'api', 'package.json'),
+    JSON.stringify({
+      scripts: { start: 'node main.js' },
+      dependencies: { fastify: '^4.0.0' },
+    }),
+  );
+
+  process.chdir(tempDir);
+  try {
+    const services = detectLocalStack();
+    const serviceMap = services.map(({ name, command, cwd }) => ({
+      name,
+      command,
+      cwd,
+    }));
+
+    assert.deepEqual(serviceMap, [
+      { name: 'api', command: 'npm start', cwd: 'apps/api' },
+      { name: 'web', command: 'npm run dev', cwd: 'apps/web' },
+    ]);
+  } finally {
+    process.chdir(originalCwd);
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+});
+

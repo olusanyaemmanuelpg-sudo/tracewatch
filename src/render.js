@@ -63,7 +63,10 @@ export function formatLogEvent(event, serviceColor = 'white') {
     timeString = '00:00:00.000';
   }
 
-  const colorizer = pc[serviceColor] || pc.white;
+  const colorizer =
+    typeof serviceColor === 'function'
+      ? serviceColor
+      : pc[serviceColor] || pc.white;
   const serviceName = String(event.service || 'system')
     .slice(0, 12)
     .padEnd(12);
@@ -107,7 +110,10 @@ export function formatEvidenceLine(evidenceText, serviceColor = 'white') {
   const safeText = String(evidenceText ?? '').trim();
   if (!safeText) return pc.gray('No evidence available');
 
-  const colorizer = pc[serviceColor] || pc.white;
+  const colorizer =
+    typeof serviceColor === 'function'
+      ? serviceColor
+      : pc[serviceColor] || pc.white;
   return colorizer(safeText);
 }
 
