@@ -1,0 +1,9 @@
+.env
+.tracewatch-session.jsonl
+tracewatch.json
+report.md
+*.log
+test/
+.git/
+.github/
+node_modules/

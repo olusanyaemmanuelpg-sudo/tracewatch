@@ -4,16 +4,42 @@
   "type": "module",
   "description": "Don't show me the logs, show me what broke.",
   "main": "src/cli.js",
+  "engines": {
+    "node": ">=18"
+  },
   "bin": {
     "tracewatch": "./bin/tracewatch.js"
   },
+  "files": [
+    "bin",
+    "src",
+    "fixtures",
+    "docs",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "test": "node --test --test-reporter=spec",
     "demo": "cp fixtures/demo/tracewatch.json . && tracewatch start --web"
   },
-  "keywords": [],
+  "keywords": [
+    "cli",
+    "observability",
+    "debugging",
+    "logs",
+    "root-cause-analysis",
+    "developer-tools"
+  ],
   "author": "Olusanya Emmanuel",
   "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/olusanyaemmanuelpg-sudo/tracewatch.git"
+  },
+  "bugs": {
+    "url": "https://github.com/olusanyaemmanuelpg-sudo/tracewatch/issues"
+  },
+  "homepage": "https://github.com/olusanyaemmanuelpg-sudo/tracewatch#readme",
   "dependencies": {
     "picocolors": "^1.1.1"
   }
