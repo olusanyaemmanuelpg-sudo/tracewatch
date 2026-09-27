@@ -6,9 +6,15 @@ import path from 'node:path';
 
 import { parseLogLine } from '../src/parsers/index.js';
 import { renderToConsole, formatEvidenceLine } from '../src/render.js';
-import { parseGeminiResponse } from '../src/analyze-ai.js';
+import { parseGeminiResponse, inferStackWithAI } from '../src/analyze-ai.js';
 import { handleExplain } from '../src/commands/explain.js';
-import { detectLocalStack } from '../src/config.js';
+import {
+  detectLocalStack,
+  detectPackageManager,
+  resolveNodeScript,
+  resolveNodeCommand,
+  formatPackageManagerCommand,
+} from '../src/config.js';
 
 test('parseLogLine prioritizes fatal and error levels over info', () => {
   assert.equal(parseLogLine('fatal: database connection lost').level, 'fatal');
@@ -361,6 +367,187 @@ test('freePort terminates external processes holding a port', async () => {
     } catch {}
   }
 });
+
+test('detectPackageManager identifies pnpm, yarn, bun, npm, and packageManager field', () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'tracewatch-pm-'));
+  try {
+    // Default when no files present
+    assert.equal(detectPackageManager(tempDir), 'npm');
+
+    // pnpm lockfile
+    fs.writeFileSync(path.join(tempDir, 'pnpm-lock.yaml'), '');
+    assert.equal(detectPackageManager(tempDir), 'pnpm');
+    fs.rmSync(path.join(tempDir, 'pnpm-lock.yaml'));
+
+    // yarn lockfile
+    fs.writeFileSync(path.join(tempDir, 'yarn.lock'), '');
+    assert.equal(detectPackageManager(tempDir), 'yarn');
+    fs.rmSync(path.join(tempDir, 'yarn.lock'));
+
+    // bun lockfile
+    fs.writeFileSync(path.join(tempDir, 'bun.lockb'), '');
+    assert.equal(detectPackageManager(tempDir), 'bun');
+    fs.rmSync(path.join(tempDir, 'bun.lockb'));
+
+    // package.json packageManager field
+    fs.writeFileSync(
+      path.join(tempDir, 'package.json'),
+      JSON.stringify({ packageManager: 'pnpm@9.5.0' }),
+    );
+    assert.equal(detectPackageManager(tempDir), 'pnpm');
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+});
+
+test('resolveNodeScript resolves start/pure, start/dev, start:dev, dev:*, and fallbacks', () => {
+  assert.equal(resolveNodeScript({ 'start/pure': 'node server.js' }), 'start/pure');
+  assert.equal(resolveNodeScript({ 'start:pure': 'node server.js' }), 'start:pure');
+  assert.equal(resolveNodeScript({ 'start/dev': 'nodemon server.js' }), 'start/dev');
+  assert.equal(resolveNodeScript({ 'start:dev': 'nest start --watch' }), 'start:dev');
+  assert.equal(resolveNodeScript({ 'dev:all': 'concurrently "..."' }), 'dev:all');
+  assert.equal(resolveNodeScript({ serve: 'node app.js' }), 'serve');
+  assert.equal(resolveNodeScript({ start: 'node index.js' }), 'start');
+  assert.equal(resolveNodeScript({ dev: 'vite' }), 'dev');
+  assert.equal(resolveNodeScript({}), null);
+});
+
+test('resolveNodeCommand formats command with pnpm, yarn, bun, and falls back to server.js', () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'tracewatch-cmd-'));
+  try {
+    // pnpm with start/pure
+    assert.equal(
+      resolveNodeCommand({ scripts: { 'start/pure': 'node server.js' } }, 'pnpm', tempDir),
+      'pnpm run start/pure',
+    );
+
+    // pnpm with start
+    assert.equal(
+      resolveNodeCommand({ scripts: { start: 'node server.js' } }, 'pnpm', tempDir),
+      'pnpm start',
+    );
+
+    // yarn with start/dev
+    assert.equal(
+      resolveNodeCommand({ scripts: { 'start/dev': 'nodemon server.js' } }, 'yarn', tempDir),
+      'yarn run start/dev',
+    );
+
+    // bun with dev
+    assert.equal(
+      resolveNodeCommand({ scripts: { dev: 'bun run index.ts' } }, 'bun', tempDir),
+      'bun run dev',
+    );
+
+    // Fallback to server.js when no scripts defined
+    fs.writeFileSync(path.join(tempDir, 'server.js'), 'console.log("running");');
+    assert.equal(
+      resolveNodeCommand({ scripts: {} }, 'npm', tempDir),
+      'node server.js',
+    );
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+});
+
+test('detectLocalStack discovers 3 folders with pnpm, start/pure, and start/dev without standard express/start', () => {
+  const originalCwd = process.cwd();
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'tracewatch-mentor-'));
+
+  // Monorepo root has pnpm-lock.yaml and 3 distinct folders: backend, frontend, worker
+  fs.writeFileSync(path.join(tempDir, 'pnpm-lock.yaml'), '');
+  fs.mkdirSync(path.join(tempDir, 'backend'));
+  fs.mkdirSync(path.join(tempDir, 'frontend'));
+  fs.mkdirSync(path.join(tempDir, 'worker'));
+
+  // Backend: has server.js, start/pure script, non-standard dependencies (e.g. cors, dotenv)
+  fs.writeFileSync(path.join(tempDir, 'backend', 'server.js'), 'console.log("backend");');
+  fs.writeFileSync(
+    path.join(tempDir, 'backend', 'package.json'),
+    JSON.stringify({
+      scripts: { 'start/pure': 'node server.js' },
+      dependencies: { dotenv: '^16.0.0' },
+    }),
+  );
+
+  // Frontend: has start/dev script and vite
+  fs.writeFileSync(
+    path.join(tempDir, 'frontend', 'package.json'),
+    JSON.stringify({
+      scripts: { 'start/dev': 'vite' },
+      dependencies: { vite: '^5.0.0' },
+    }),
+  );
+
+  // Worker: has dev script
+  fs.writeFileSync(
+    path.join(tempDir, 'worker', 'package.json'),
+    JSON.stringify({
+      scripts: { dev: 'node worker.js' },
+      dependencies: { redis: '^4.0.0' },
+    }),
+  );
+
+  process.chdir(tempDir);
+  try {
+    const services = detectLocalStack();
+    const serviceSummary = services.map(({ name, command, cwd, type }) => ({
+      name,
+      command,
+      cwd,
+      type,
+    }));
+
+    assert.deepEqual(serviceSummary, [
+      { name: 'backend', command: 'pnpm run start/pure', cwd: 'backend', type: 'backend' },
+      { name: 'frontend', command: 'pnpm run start/dev', cwd: 'frontend', type: 'frontend' },
+      { name: 'worker', command: 'pnpm run dev', cwd: 'worker', type: 'backend' },
+    ]);
+  } finally {
+    process.chdir(originalCwd);
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+});
+
+test('inferStackWithAI handles missing API key safely without throwing', async () => {
+  const originalKey = process.env.GEMINI_API_KEY;
+  delete process.env.GEMINI_API_KEY;
+
+  try {
+    const res = await inferStackWithAI(process.cwd());
+    assert.equal(res.success, false);
+    assert.match(res.message, /GEMINI_API_KEY/);
+  } finally {
+    if (originalKey !== undefined) {
+      process.env.GEMINI_API_KEY = originalKey;
+    }
+  }
+});
+
+test('detectLocalStack does not include arbitrary dummy port values on services', () => {
+  const originalCwd = process.cwd();
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'tracewatch-no-port-'));
+
+  fs.mkdirSync(path.join(tempDir, 'backend'));
+  fs.writeFileSync(
+    path.join(tempDir, 'backend', 'package.json'),
+    JSON.stringify({
+      scripts: { start: 'node server.js' },
+      dependencies: { express: '^4.18.0' },
+    }),
+  );
+
+  process.chdir(tempDir);
+  try {
+    const services = detectLocalStack();
+    assert.equal(services.length, 1);
+    assert.equal(services[0].port, undefined);
+  } finally {
+    process.chdir(originalCwd);
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+});
+
 
 
 

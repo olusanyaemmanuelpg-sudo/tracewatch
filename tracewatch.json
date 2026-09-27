@@ -1,0 +1,10 @@
+{
+  "port": 9999,
+  "services": [
+    {
+      "name": "demo-app",
+      "command": "node fixtures/demo/app.js",
+      "color": "cyan"
+    }
+  ]
+}

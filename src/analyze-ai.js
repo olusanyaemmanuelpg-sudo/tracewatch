@@ -1,4 +1,6 @@
 import https from 'https';
+import fs from 'fs';
+import path from 'path';
 
 export function parseGeminiResponse(responsePayload) {
   const payload =
@@ -145,6 +147,148 @@ export function superviseWithAI(logWindow, localFinding) {
     });
 
     req.on('error', (e) => reject(e));
+    req.write(dataString);
+    req.end();
+  });
+}
+
+/**
+ * AI Stack Fallback: Uses Gemini to inspect an unrecognized codebase directory and infer service configurations.
+ * Kept intentionally lightweight and non-intensive: only called as a fallback when deterministic heuristics find no supported services.
+ * @param {string} cwd - Base directory to inspect
+ * @returns {Promise<{ success: boolean, services?: Array<Object>, message?: string }>}
+ */
+export function inferStackWithAI(cwd = process.cwd()) {
+  return new Promise((resolve) => {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      return resolve({
+        success: false,
+        message: 'AI configuration missing (GEMINI_API_KEY).',
+      });
+    }
+
+    const filesSummary = [];
+    try {
+      const entries = fs.readdirSync(cwd, { withFileTypes: true });
+      for (const entry of entries) {
+        if (
+          entry.name.startsWith('.') ||
+          ['node_modules', 'dist', 'build', 'coverage', '.git'].includes(
+            entry.name,
+          )
+        ) {
+          continue;
+        }
+        if (entry.isDirectory()) {
+          try {
+            const subEntries = fs
+              .readdirSync(path.join(cwd, entry.name))
+              .slice(0, 10);
+            filesSummary.push(
+              `Directory "${entry.name}" containing: ${subEntries.join(', ')}`,
+            );
+          } catch {
+            filesSummary.push(`Directory "${entry.name}"`);
+          }
+        } else {
+          let extra = '';
+          if (entry.name === 'package.json') {
+            try {
+              const pkg = JSON.parse(
+                fs.readFileSync(path.join(cwd, entry.name), 'utf-8'),
+              );
+              extra = ` (scripts: ${Object.keys(pkg.scripts || {}).join(', ')}; deps: ${Object.keys(pkg.dependencies || {}).slice(0, 10).join(', ')})`;
+            } catch {}
+          }
+          filesSummary.push(`File "${entry.name}"${extra}`);
+        }
+      }
+    } catch (err) {
+      return resolve({ success: false, message: err.message });
+    }
+
+    const systemPrompt = `You are an expert developer tooling assistant for TraceWatch.
+Your task is to analyze an unrecognized project structure and infer the runnable local microservices (frontend, backend, workers, etc.).
+Determine:
+1. "name": short service name
+2. "type": "frontend" or "backend"
+3. "framework": framework or runtime name
+4. "command": command to start the service (e.g. "pnpm run start/pure", "pnpm dev", "node server.js", "cargo run", etc.)
+5. "cwd": relative directory if located in a subfolder (omit or "." if root)
+
+CRITICAL: Output your response ONLY as a raw, valid JSON object matching this structure exactly without markdown code blocks:
+{
+  "services": [
+    {
+      "name": "backend",
+      "type": "backend",
+      "framework": "Node.js",
+      "command": "pnpm run start/pure",
+      "cwd": "backend"
+    }
+  ]
+}`;
+
+    const promptPayload = {
+      contents: [
+        {
+          role: 'user',
+          parts: [
+            {
+              text: `Here is the project directory inspection summary:\n${filesSummary.join('\n')}`,
+            },
+          ],
+        },
+      ],
+      systemInstruction: {
+        parts: [{ text: systemPrompt }],
+      },
+      generationConfig: {
+        temperature: 0.1,
+        responseMimeType: 'application/json',
+      },
+    };
+
+    const dataString = JSON.stringify(promptPayload);
+
+    const requestOptions = {
+      hostname: 'generativelanguage.googleapis.com',
+      port: 443,
+      path: '/v1beta/models/gemini-2.5-pro:generateContent',
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-goog-api-key': apiKey,
+        'Content-Length': Buffer.byteLength(dataString),
+      },
+    };
+
+    const req = https.request(requestOptions, (res) => {
+      let responseBody = '';
+      res.on('data', (chunk) => (responseBody += chunk));
+
+      res.on('end', () => {
+        try {
+          const parsed = JSON.parse(responseBody);
+          if (parsed.error) {
+            return resolve({ success: false, message: parsed.error.message });
+          }
+          const cleanJson = parseGeminiResponse(parsed);
+          const services = Array.isArray(cleanJson?.services)
+            ? cleanJson.services
+            : [];
+          resolve({ success: true, services });
+        } catch {
+          resolve({
+            success: false,
+            message: 'AI stack inference compilation failed.',
+          });
+        }
+      });
+    });
+
+    req.on('error', (e) => resolve({ success: false, message: e.message }));
     req.write(dataString);
     req.end();
   });

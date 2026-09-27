@@ -46,7 +46,7 @@ if (!command || isHelpRequested) {
 switch (command) {
   case 'init':
     console.log('🔍 Executing stack auto-discovery setup...');
-    handleInit();
+    await handleInit();
     break;
 
   case 'start':
