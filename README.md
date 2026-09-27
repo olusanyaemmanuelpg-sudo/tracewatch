@@ -34,7 +34,7 @@ npm link
 
 TraceWatch operates through a simple command-line interface.
 
-First, initialize the workspace in your project directory. This scans your local files and generates a configuration profile:
+First, initialize the workspace in your root project directory. This scans your local files and generates a configuration profile:
 
 ```bash
 tracewatch init
@@ -160,23 +160,9 @@ TraceWatch will leave attached services running and will not create a duplicate 
 - **Root Cause Analysis**: Sweeps over trace timelines to match error signatures against known failures like exhausted connection pools or missing environment variables.
 - **AI Supervisor Fallback**: If local rules cannot identify the root cause, TraceWatch intelligently leverages the Gemini LLM to screen the logs and validate the issue.
 
-```mermaid
-sequenceDiagram
-  actor Developer
-  participant CLI as "TraceWatch CLI"
-  participant Store as "Event Store"
-  participant Engine as "Rule Engine"
-  participant AI as "AI Supervisor"
-
-  Developer->>CLI: Run tracewatch explain
-  CLI->>Store: Read session logs
-  Store->>CLI: Return log history
-  CLI->>Engine: Correlate and evaluate traces
-  Engine->>CLI: Return top diagnostic finding
-  CLI->>AI: Request AI fallback (if no local rule matches)
-  AI->>CLI: Return intelligent diagnosis
-  CLI->>Developer: Print root cause and fix action
-```
+<p align="center">
+  <img src="docs/features.png" alt="TraceWatch system architecture" width="100%" />
+</p>
 
 ## Technologies Used
 
